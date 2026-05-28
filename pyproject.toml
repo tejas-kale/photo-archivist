@@ -1,0 +1,11 @@
+[project]
+name = "photo-archivist"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.28.1",
+    "mlx-vlm>=0.5.0",
+    "osxphotos>=0.75.9",
+    "pillow>=12.2.0",
+    "sqlite-utils>=3.39",
+]
