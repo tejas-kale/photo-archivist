@@ -6,7 +6,7 @@ import httpx
 
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2-vision")
+DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
 DEFAULT_PROMPT = "Describe this image for a searchable personal photo archive. Mention people, objects, setting, visible text, mood, and any useful dates or locations."
 
 
