@@ -18,12 +18,13 @@ def image_data(path):
     return base64.b64encode(Path(path).read_bytes()).decode()
 
 
-def describe_image(path, prompt=DEFAULT_PROMPT, model=None, timeout=120):
+def describe_image(path, prompt=DEFAULT_PROMPT, model=None, timeout=600, num_predict=160):
     body = {
         "model": model or DEFAULT_MODEL,
         "prompt": prompt,
         "images": [image_data(path)],
         "stream": False,
+        "options": {"num_predict": num_predict},
     }
     r = httpx.post(f"{OLLAMA_URL}/api/generate", json=body, timeout=timeout)
     r.raise_for_status()
@@ -47,9 +48,10 @@ def random_photo():
 @click.command()
 @click.option("--prompt", default=DEFAULT_PROMPT, show_default=False)
 @click.option("--model", default=None, help=f"Default: {DEFAULT_MODEL}")
-@click.option("--timeout", default=120, show_default=True)
+@click.option("--timeout", default=600, show_default=True)
+@click.option("--num-predict", default=160, show_default=True)
 @click.option("--preview", is_flag=True, help="Open the image in Preview.app")
-def cli(prompt, model, timeout, preview):
+def cli(prompt, model, timeout, num_predict, preview):
     photo, image = random_photo()
     click.echo(f"🎲 Picked {photo.uuid}")
     click.echo(f"🔎 Reading {image}")
@@ -57,8 +59,9 @@ def cli(prompt, model, timeout, preview):
         click.echo("🖼️ Opening Preview")
         subprocess.run(["open", "-a", "Preview", image], check=True)
     click.echo(f"🧠 Asking {model or DEFAULT_MODEL}")
+    click.echo(f"⏱️ Timeout {timeout}s, max tokens {num_predict}")
     click.echo("📝 Description:")
-    click.echo(describe_image(image, prompt, model, timeout))
+    click.echo(describe_image(image, prompt, model, timeout, num_predict))
     click.echo("✅ Done")
 
 
