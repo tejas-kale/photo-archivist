@@ -20,6 +20,16 @@ class StructureTests(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
         self.assertIn("--source", result.output)
 
+    def test_open_photos_cli(self):
+        import archive
+
+        with patch.object(archive.open_original, "open_original") as open_original:
+            result = CliRunner().invoke(archive.cli, ["open-photos", "uuid"])
+
+        self.assertEqual(0, result.exit_code)
+        open_original.assert_called_once_with("photos", "uuid", None)
+        self.assertIn("opened Photos item uuid", result.output)
+
     def test_label_face_cli(self):
         import archive
 

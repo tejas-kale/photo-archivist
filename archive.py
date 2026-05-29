@@ -9,6 +9,7 @@ import embed
 import faces
 import geocode
 import metadata
+import open_original
 import sidecar as sidecars
 import store
 from sources import apple_photos, onedrive
@@ -90,6 +91,13 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
 def label_face(face_id, name):
     faces.label_face(face_id, name)
     click.echo(f"labelled face {face_id} as {name}")
+
+
+@cli.command("open-photos")
+@click.argument("source_id")
+def open_photos(source_id):
+    open_original.open_original("photos", source_id, None)
+    click.echo(f"opened Photos item {source_id}")
 
 
 def with_source_gps(photo_metadata, media):
