@@ -59,6 +59,18 @@ class StructureTests(unittest.TestCase):
         save.assert_called_once_with(item, "caption", b"vector", "test.db")
         sidecar.assert_called_once_with(item, "caption")
 
+    def test_archive_cli_can_skip_embeddings(self):
+        import archive
+        from sources.base import SourceMedia
+
+        item = SourceMedia("onedrive", "id", Path("x.jpg"), {})
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.describe, "describe", return_value="caption"), patch.object(archive.embed, "embedding_blob") as embed, patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
+            result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--no-embed"])
+
+        self.assertEqual(0, result.exit_code)
+        embed.assert_not_called()
+        save.assert_called_once_with(item, "caption", None, "archive.db")
+
     def test_archive_cli_can_preview_image(self):
         import archive
         from sources.base import SourceMedia
