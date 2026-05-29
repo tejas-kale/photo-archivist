@@ -27,6 +27,16 @@ class StructuredTests(unittest.TestCase):
         self.assertEqual("soft", data.lighting)
         self.assertEqual("A child plays outside.\nAn adult stands nearby.", data.description_prose)
 
+    def test_describe_retries_truncated_json_instead_of_preserving_it(self):
+        import describe
+
+        payload = json.dumps({"description_prose": "clean prose", "people_count": 1})
+        with patch.object(describe, "describe_ollama", side_effect=['{"description_prose": "broken', payload]) as ollama:
+            data = describe.describe(Path("x.jpg"), backend="ollama", retries=1)
+
+        self.assertEqual("clean prose", data.description_prose)
+        self.assertEqual(2, ollama.call_count)
+
     def test_describe_preserves_plain_text_when_json_is_missing(self):
         import describe
 
@@ -47,7 +57,9 @@ class StructuredTests(unittest.TestCase):
         with patch.object(describe.httpx, "post", return_value=response) as post:
             describe.describe_ollama(image)
 
-        self.assertEqual("json", post.call_args.kwargs["json"]["format"])
+        body = post.call_args.kwargs["json"]
+        self.assertEqual("json", body["format"])
+        self.assertEqual(768, body["options"]["num_predict"])
 
     def test_store_adds_new_columns_to_existing_database(self):
         import sqlite3
