@@ -15,7 +15,9 @@ def model():
 def embedding(path):
     m, p = model()
     inputs = p(images=Image.open(path).convert("RGB"), return_tensors="pt")
-    vector = m.get_image_features(**inputs).detach().numpy()[0]
+    features = m.get_image_features(**inputs)
+    features = getattr(features, "pooler_output", features)
+    vector = features.detach().numpy()[0]
     vector = vector / np.linalg.norm(vector)
     return vector.astype("float32")
 

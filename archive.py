@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import click
@@ -26,17 +27,29 @@ def source_media(source):
 @click.option("--backend", default=describe.DEFAULT_BACKEND, show_default=True)
 @click.option("--model", default=None)
 @click.option("--limit", default=None, type=int)
+@click.option("--retries", default=2, show_default=True)
+@click.option("--preview", is_flag=True, help="Open each image in Preview.app")
+@click.option("--embed/--no-embed", "write_embedding", default=True, show_default=True)
 @click.option("--sidecar/--no-sidecar", "write_sidecar", default=True, show_default=True)
-def cli(source, db_path, backend, model, limit, write_sidecar):
+@click.option("--verbose", is_flag=True)
+def cli(source, db_path, backend, model, limit, retries, preview, write_embedding, write_sidecar, verbose):
     for i, media in enumerate(source_media(source), start=1):
         if limit and i > limit:
             return
         click.echo(f"🔎 {media.path}")
-        text = describe.describe(media.path, backend=backend, model=model)
-        vector = embed.embedding_blob(media.path)
-        store.save(media, text, vector, db_path)
+        if preview:
+            subprocess.run(["open", "-a", "Preview", media.path], check=True)
+        if verbose:
+            click.echo("🧠 describing")
+        data = describe.describe(media.path, backend=backend, model=model, retries=retries)
+        if verbose and write_embedding:
+            click.echo("🧬 embedding")
+        vector = embed.embedding_blob(media.path) if write_embedding else None
+        if verbose:
+            click.echo("💾 saving")
+        store.save(media, data, vector, db_path)
         if write_sidecar:
-            click.echo(f"📝 {sidecars.write(media, text)}")
+            click.echo(f"📝 {sidecars.write(media, data.get('description', ''))}")
         click.echo("✅ archived")
 
 
