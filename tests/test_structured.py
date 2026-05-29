@@ -22,7 +22,20 @@ class StructuredTests(unittest.TestCase):
         with patch.object(describe, "describe_ollama", return_value=json.dumps(payload)):
             data = describe.describe(Path("x.jpg"), backend="ollama", retries=0)
 
-        self.assertEqual(payload, data)
+        self.assertEqual(2, data.people_count)
+        self.assertEqual("day", data.time_of_day)
+        self.assertEqual("soft", data.lighting)
+        self.assertEqual("A child plays outside.\nAn adult stands nearby.", data.description_prose)
+
+    def test_describe_retries_truncated_json_instead_of_preserving_it(self):
+        import describe
+
+        payload = json.dumps({"description_prose": "clean prose", "people_count": 1})
+        with patch.object(describe, "describe_ollama", side_effect=['{"description_prose": "broken', payload]) as ollama:
+            data = describe.describe(Path("x.jpg"), backend="ollama", retries=1)
+
+        self.assertEqual("clean prose", data.description_prose)
+        self.assertEqual(2, ollama.call_count)
 
     def test_describe_preserves_plain_text_when_json_is_missing(self):
         import describe
@@ -31,9 +44,9 @@ class StructuredTests(unittest.TestCase):
         with patch.object(describe, "describe_ollama", return_value=text):
             data = describe.describe(Path("x.jpg"), backend="ollama", retries=0)
 
-        self.assertEqual(text, data["description"])
-        self.assertEqual("unknown", data["day_night"])
-        self.assertIsNone(data["number_people"])
+        self.assertEqual(text, data.description_prose)
+        self.assertEqual("unknown", data.time_of_day)
+        self.assertIsNone(data.people_count)
 
     def test_ollama_requests_json_format(self):
         import describe
@@ -44,7 +57,25 @@ class StructuredTests(unittest.TestCase):
         with patch.object(describe.httpx, "post", return_value=response) as post:
             describe.describe_ollama(image)
 
-        self.assertEqual("json", post.call_args.kwargs["json"]["format"])
+        body = post.call_args.kwargs["json"]
+        self.assertEqual("json", body["format"])
+        self.assertEqual(768, body["options"]["num_predict"])
+
+    def test_store_adds_new_columns_to_existing_database(self):
+        import sqlite3
+        import store
+
+        with tempfile.TemporaryDirectory() as d:
+            db_path = Path(d) / "archive.db"
+            con = sqlite3.connect(db_path)
+            con.execute("create table media (id text primary key, source text)")
+            con.commit()
+            store.db(db_path)
+            cols = {row[1] for row in con.execute("pragma table_info(media)")}
+
+        self.assertIn("camera_make", cols)
+        self.assertIn("place", cols)
+        self.assertIn("face_count", cols)
 
     def test_store_uses_filename_stem_as_primary_key(self):
         import sqlite_utils

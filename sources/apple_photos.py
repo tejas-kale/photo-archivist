@@ -21,6 +21,9 @@ def metadata(photo):
         "albums": photo.albums,
         "persons": photo.persons,
         "path": str(photo.path) if photo.path else None,
+        "gps_lat": getattr(photo, "latitude", None),
+        "gps_lon": getattr(photo, "longitude", None),
+        "gps_altitude_m": getattr(photo, "altitude", None),
     }
 
 
