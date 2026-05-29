@@ -1,5 +1,6 @@
 import base64
 import os
+import subprocess
 from pathlib import Path
 
 import click
@@ -32,8 +33,12 @@ def describe_image(path, prompt=DEFAULT_PROMPT, model=None, timeout=120):
 @click.option("--prompt", default=DEFAULT_PROMPT, show_default=False)
 @click.option("--model", default=None, help=f"Default: {DEFAULT_MODEL}")
 @click.option("--timeout", default=120, show_default=True)
-def cli(image, prompt, model, timeout):
+@click.option("--preview", is_flag=True, help="Open the image in Preview.app")
+def cli(image, prompt, model, timeout, preview):
     click.echo(f"🔎 Reading {image}")
+    if preview:
+        click.echo("🖼️ Opening Preview")
+        subprocess.run(["open", "-a", "Preview", image], check=True)
     click.echo(f"🧠 Asking {model or DEFAULT_MODEL}")
     click.echo("📝 Description:")
     click.echo(describe_image(image, prompt, model, timeout))
