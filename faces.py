@@ -1,0 +1,85 @@
+import logging
+import sqlite3
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from functools import cache
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+
+@dataclass(frozen=True)
+class FaceEmbedding:
+    embedding: bytes
+    bbox: tuple[int, int, int, int]
+    det_score: float
+
+
+def root():
+    path = Path.home() / ".photo-archivist"
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def db():
+    con = sqlite3.connect(root() / "faces.db")
+    con.execute("create table if not exists faces (id integer primary key, source text not null, source_id text not null, embedding blob not null, bbox_x1 int, bbox_y1 int, bbox_x2 int, bbox_y2 int, det_score real, indexed_at text)")
+    return con
+
+
+@cache
+def app():
+    from insightface.app import FaceAnalysis
+
+    face_app = FaceAnalysis(name="buffalo_s", providers=["CPUExecutionProvider"])
+    face_app.prepare(ctx_id=0)
+    return face_app
+
+
+def detect_faces(path: Path) -> list[FaceEmbedding]:
+    try:
+        from pillow_heif import register_heif_opener
+
+        register_heif_opener()
+        image = np.array(Image.open(path).convert("RGB"))
+        return [face_embedding(face) for face in app().get(image)]
+    except ImportError:
+        logging.warning("insightface not installed")
+        return []
+
+
+def face_embedding(face):
+    bbox = tuple(int(x) for x in face.bbox)
+    vector = np.array(face.embedding, dtype="float32")
+    return FaceEmbedding(vector.tobytes(), bbox, float(face.det_score))
+
+
+def store_face_embeddings(source: str, source_id: str, faces: list[FaceEmbedding]) -> list[int]:
+    con = db()
+    ids = []
+    for face in faces:
+        row = (source, source_id, face.embedding, *face.bbox, face.det_score, datetime.now(timezone.utc).isoformat())
+        cur = con.execute("insert into faces (source, source_id, embedding, bbox_x1, bbox_y1, bbox_x2, bbox_y2, det_score, indexed_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
+        ids.append(cur.lastrowid)
+    con.commit()
+    return ids
+
+
+def find_similar_faces(query_path: Path, top_k: int = 10) -> list[dict]:
+    query = detect_faces(query_path)
+    if not query:
+        return []
+    con = db()
+    rows = con.execute("select source, source_id, embedding, bbox_x1, bbox_y1, bbox_x2, bbox_y2 from faces").fetchall()
+    if not rows:
+        return []
+    q = np.frombuffer(query[0].embedding, dtype="float32")
+    matrix = np.vstack([np.frombuffer(row[2], dtype="float32") for row in rows])
+    sims = matrix @ q / (np.linalg.norm(matrix, axis=1) * np.linalg.norm(q))
+    order = np.argsort(-sims)[:top_k]
+    return [result(rows[i], float(sims[i])) for i in order]
+
+
+def result(row, score):
+    return {"source": row[0], "source_id": row[1], "cosine_similarity": score, "bbox": [row[3], row[4], row[5], row[6]]}

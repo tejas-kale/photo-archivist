@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
@@ -11,7 +12,32 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
 MLX_MODEL = os.getenv("MLX_VLM_MODEL", "mlx-community/Qwen3.5-VL-9B-Instruct-4bit")
 DEFAULT_BACKEND = os.getenv("VISION_BACKEND", "ollama")
-DEFAULT_PROMPT = "Return only JSON with keys: number_people integer, day_night day/night/unknown, lighting_quality string, blur boolean, picture_quality string, child boolean, description two lines, activity two words."
+DEFAULT_PROMPT = "Return only JSON with keys: rating keep/review/cull, cull_reason string, focus sharp/acceptable/soft, exposure strong/adequate/poor/clipped, depth_of_field shallow/standard/deep, noise clean/some/heavy, lighting string, time_of_day string, dominant_color_palette string, dominant_colors list, people_count integer, keywords list, description_prose two lines, activity two words."
+
+
+@dataclass(frozen=True)
+class VisionResult:
+    rating: str = "review"
+    cull_reason: str = ""
+    focus: str = "acceptable"
+    exposure: str = "adequate"
+    depth_of_field: str = "standard"
+    noise: str = "clean"
+    lighting: str = "unknown"
+    time_of_day: str = "unknown"
+    dominant_color_palette: str = "unknown"
+    dominant_colors: list[str] = field(default_factory=list)
+    people_count: int | None = None
+    keywords: list[str] = field(default_factory=list)
+    description_prose: str = ""
+    activity: str = "unknown"
+
+    def get(self, key, default=None):
+        aliases = {"description": "description_prose", "number_people": "people_count", "day_night": "time_of_day", "lighting_quality": "lighting"}
+        return getattr(self, aliases.get(key, key), default)
+
+    def __getitem__(self, key):
+        return self.get(key)
 
 
 def image_data(path):
@@ -34,29 +60,42 @@ def parse(text):
     if "{" not in text or "}" not in text:
         return fallback(text)
     data = json.loads(text[text.find("{"): text.rfind("}") + 1])
-    return {
-        "number_people": int(data["number_people"]),
-        "day_night": str(data["day_night"]),
-        "lighting_quality": str(data["lighting_quality"]),
-        "blur": bool(data["blur"]),
-        "picture_quality": str(data["picture_quality"]),
-        "child": bool(data["child"]),
-        "description": str(data["description"]),
-        "activity": str(data["activity"]),
-    }
+    return VisionResult(
+        rating=str(data.get("rating", "review")),
+        cull_reason=str(data.get("cull_reason", "")),
+        focus=str(data.get("focus", "soft" if data.get("blur") else "acceptable")),
+        exposure=str(data.get("exposure", "adequate")),
+        depth_of_field=str(data.get("depth_of_field", "standard")),
+        noise=str(data.get("noise", "clean")),
+        lighting=str(data.get("lighting", data.get("lighting_quality", "unknown"))),
+        time_of_day=str(data.get("time_of_day", data.get("day_night", "unknown"))),
+        dominant_color_palette=str(data.get("dominant_color_palette", "unknown")),
+        dominant_colors=list(data.get("dominant_colors", [])),
+        people_count=maybe_int(data.get("people_count", data.get("number_people"))),
+        keywords=list(data.get("keywords", [])),
+        description_prose=str(data.get("description_prose", data.get("description", ""))),
+        activity=str(data.get("activity", "unknown")),
+    )
 
 
 def fallback(text):
-    return {
-        "number_people": None,
-        "day_night": "unknown",
-        "lighting_quality": "unknown",
-        "blur": None,
-        "picture_quality": "unknown",
-        "child": None,
-        "description": text,
-        "activity": "unknown",
-    }
+    return VisionResult(description_prose=text)
+
+
+def coerce(data):
+    if isinstance(data, VisionResult):
+        return data
+    return VisionResult(
+        lighting=str(data.get("lighting", data.get("lighting_quality", "unknown"))),
+        time_of_day=str(data.get("time_of_day", data.get("day_night", "unknown"))),
+        people_count=maybe_int(data.get("people_count", data.get("number_people"))),
+        description_prose=str(data.get("description_prose", data.get("description", ""))),
+        activity=str(data.get("activity", "unknown")),
+    )
+
+
+def maybe_int(value):
+    return None if value is None else int(value)
 
 
 def describe_once(path, prompt=DEFAULT_PROMPT, backend=DEFAULT_BACKEND, model=None):
