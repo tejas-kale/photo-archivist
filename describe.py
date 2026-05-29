@@ -17,7 +17,19 @@ def image_data(path):
     return base64.b64encode(Path(path).read_bytes()).decode()
 
 
-def describe(path, prompt=DEFAULT_PROMPT, backend=DEFAULT_BACKEND, model=None):
+def describe(path, prompt=DEFAULT_PROMPT, backend=DEFAULT_BACKEND, model=None, retries=2):
+    prompts = [prompt, f"{prompt}\nAnswer in one concise sentence.", "Describe the image in one concise sentence."]
+    for attempt in range(retries + 1):
+        try:
+            text = describe_once(path, prompts[min(attempt, len(prompts) - 1)], backend, model)
+            if text:
+                return text
+        except httpx.HTTPError:
+            pass
+    raise RuntimeError("No description after retries")
+
+
+def describe_once(path, prompt=DEFAULT_PROMPT, backend=DEFAULT_BACKEND, model=None):
     if backend == "mlx-vlm":
         return describe_mlx(path, prompt, model or MLX_MODEL)
     if backend == "ollama":

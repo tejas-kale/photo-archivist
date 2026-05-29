@@ -1,6 +1,7 @@
 import importlib.metadata
 import tempfile
 import unittest
+from httpx import HTTPError
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -53,10 +54,30 @@ class StructureTests(unittest.TestCase):
             result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--db", "test.db"])
 
         self.assertEqual(0, result.exit_code)
-        describe.assert_called_once_with(item.path, backend="ollama", model=None)
+        describe.assert_called_once_with(item.path, backend="ollama", model=None, retries=2)
         embed.assert_called_once_with(item.path)
         save.assert_called_once_with(item, "caption", b"vector", "test.db")
         sidecar.assert_called_once_with(item, "caption")
+
+    def test_archive_cli_can_preview_image(self):
+        import archive
+        from sources.base import SourceMedia
+
+        item = SourceMedia("onedrive", "id", Path("x.jpg"), {})
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.describe, "describe", return_value="caption"), patch.object(archive.embed, "embedding_blob", return_value=b"vector"), patch.object(archive.store, "save"), patch.object(archive.sidecars, "write"), patch.object(archive.subprocess, "run") as run:
+            result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--preview"])
+
+        self.assertEqual(0, result.exit_code)
+        run.assert_called_once_with(["open", "-a", "Preview", item.path], check=True)
+
+    def test_describe_retries_empty_and_http_errors(self):
+        import describe
+
+        with patch.object(describe, "describe_ollama", side_effect=["", HTTPError("down"), "caption"]) as ollama:
+            text = describe.describe(Path("x.jpg"), backend="ollama", retries=2)
+
+        self.assertEqual("caption", text)
+        self.assertEqual(3, ollama.call_count)
 
 
 if __name__ == "__main__":
