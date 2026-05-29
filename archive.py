@@ -19,12 +19,12 @@ from sources.base import SourceMedia
 ONEDRIVE_PATH = Path.home() / "Library" / "CloudStorage" / "OneDrive"
 
 
-def source_media(source, image=None):
+def source_media(source, image=None, db_path=None, limit=None):
     if image:
         path = onedrive.ensure_local(image)
         return [SourceMedia("onedrive", str(path), path, {"path": str(path)})]
     if source == "photos":
-        return apple_photos.media()
+        return apple_photos.media(db=store.db(db_path) if db_path else None, limit=limit)
     if source == "onedrive":
         return onedrive.media(ONEDRIVE_PATH)
     return onedrive.media(source)
@@ -50,9 +50,8 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
         return
     if not source and not image:
         raise click.UsageError("Missing option '--source' or '--image'.")
-    for i, media in enumerate(source_media(source, image), start=1):
-        if limit and i > limit:
-            return
+    processed = 0
+    for media in source_media(source, image, db_path, limit):
         click.echo(f"🔎 {media.path}")
         if preview:
             subprocess.run(["open", "-a", "Preview", media.path], check=True)
@@ -83,6 +82,9 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
         if write_sidecar:
             click.echo(f"📝 {sidecars.write(media, data, photo_metadata, location, found_faces, face_ids)}")
         click.echo("✅ archived")
+        processed += 1
+        if limit and processed >= limit:
+            break
 
 
 @cli.command("label-face")
