@@ -55,6 +55,33 @@ class StructureTests(unittest.TestCase):
         self.assertEqual("onedrive", found[0].source)
         self.assertEqual(image.resolve(), found[0].path)
 
+    def test_archive_cli_accepts_specific_image_path(self):
+        import archive
+
+        with tempfile.TemporaryDirectory() as d:
+            image = Path(d) / "IMG_1234.jpeg"
+            image.write_bytes(b"image")
+            found = list(archive.source_media(None, image))
+
+        self.assertEqual(1, len(found))
+        self.assertEqual("onedrive", found[0].source)
+        self.assertEqual(image.resolve(), found[0].path)
+
+    def test_archive_cli_uses_source_gps_when_exif_lacks_it(self):
+        import archive
+        from metadata import PhotoMetadata
+        from sources.base import SourceMedia
+
+        item = SourceMedia("photos", "id", Path("x.jpg"), {"gps_lat": 51.5, "gps_lon": -0.1, "gps_altitude_m": 42.0})
+        photo_metadata = PhotoMetadata(None, None, None, None, None, None, None, None, None)
+        data = archive.describe.VisionResult(description_prose="caption")
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=photo_metadata), patch.object(archive.geocode, "reverse_geocode", return_value=None) as reverse, patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob", return_value=b"vector"), patch.object(archive.faces, "detect_faces", return_value=[]), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
+            result = CliRunner().invoke(archive.cli, ["--source", "photos"])
+
+        self.assertEqual(0, result.exit_code)
+        reverse.assert_called_once_with(51.5, -0.1)
+        self.assertEqual(51.5, save.call_args.args[4].gps_lat)
+
     def test_archive_cli_wires_description_embedding_store_and_sidecar(self):
         import archive
         from sources.base import SourceMedia

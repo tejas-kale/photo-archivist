@@ -1,4 +1,5 @@
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import click
@@ -11,12 +12,16 @@ import metadata
 import sidecar as sidecars
 import store
 from sources import apple_photos, onedrive
+from sources.base import SourceMedia
 
 
 ONEDRIVE_PATH = Path.home() / "Library" / "CloudStorage" / "OneDrive"
 
 
-def source_media(source):
+def source_media(source, image=None):
+    if image:
+        path = onedrive.ensure_local(image)
+        return [SourceMedia("onedrive", str(path), path, {"path": str(path)})]
     if source == "photos":
         return apple_photos.media()
     if source == "onedrive":
@@ -27,6 +32,7 @@ def source_media(source):
 @click.group(invoke_without_command=True)
 @click.pass_context
 @click.option("--source", required=False, help="photos, onedrive, or a file/directory path")
+@click.option("--image", type=click.Path(path_type=Path), help="Archive one image path")
 @click.option("--db", "db_path", default="archive.db", show_default=True)
 @click.option("--backend", default=describe.DEFAULT_BACKEND, show_default=True)
 @click.option("--model", default=None)
@@ -38,12 +44,12 @@ def source_media(source):
 @click.option("--geocode/--no-geocode", "write_geocode", default=True, show_default=True)
 @click.option("--faces/--no-faces", "write_faces", default=True, show_default=True)
 @click.option("--verbose", is_flag=True)
-def cli(ctx, source, db_path, backend, model, limit, retries, preview, write_embedding, write_sidecar, write_geocode, write_faces, verbose):
+def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, write_embedding, write_sidecar, write_geocode, write_faces, verbose):
     if ctx.invoked_subcommand:
         return
-    if not source:
-        raise click.UsageError("Missing option '--source'.")
-    for i, media in enumerate(source_media(source), start=1):
+    if not source and not image:
+        raise click.UsageError("Missing option '--source' or '--image'.")
+    for i, media in enumerate(source_media(source, image), start=1):
         if limit and i > limit:
             return
         click.echo(f"🔎 {media.path}")
@@ -51,7 +57,7 @@ def cli(ctx, source, db_path, backend, model, limit, retries, preview, write_emb
             subprocess.run(["open", "-a", "Preview", media.path], check=True)
         if verbose:
             click.echo("🧾 metadata")
-        photo_metadata = metadata.extract_metadata(media.path)
+        photo_metadata = with_source_gps(metadata.extract_metadata(media.path), media)
         location = None
         if write_geocode and photo_metadata.gps_lat is not None and photo_metadata.gps_lon is not None:
             if verbose:
@@ -84,6 +90,14 @@ def cli(ctx, source, db_path, backend, model, limit, retries, preview, write_emb
 def label_face(face_id, name):
     faces.label_face(face_id, name)
     click.echo(f"labelled face {face_id} as {name}")
+
+
+def with_source_gps(photo_metadata, media):
+    if photo_metadata.gps_lat is not None:
+        return photo_metadata
+    if media.metadata.get("gps_lat") is None or media.metadata.get("gps_lon") is None:
+        return photo_metadata
+    return replace(photo_metadata, gps_lat=media.metadata.get("gps_lat"), gps_lon=media.metadata.get("gps_lon"), gps_altitude_m=media.metadata.get("gps_altitude_m"))
 
 
 if __name__ == "__main__":
