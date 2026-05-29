@@ -1,0 +1,22 @@
+[project]
+name = "photo-archivist"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.4.1",
+    "httpx>=0.28.1",
+    "mlx-vlm>=0.5.0",
+    "osxphotos>=0.75.9",
+    "pillow>=12.2.0",
+    "sqlite-utils>=3.39",
+]
+
+[project.scripts]
+photo-archivist = "describe:cli"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["describe"]
