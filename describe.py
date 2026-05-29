@@ -25,12 +25,14 @@ def describe(path, prompt=DEFAULT_PROMPT, backend=DEFAULT_BACKEND, model=None, r
             text = describe_once(path, prompts[min(attempt, len(prompts) - 1)], backend, model)
             if text:
                 return parse(text)
-        except (httpx.HTTPError, json.JSONDecodeError):
+        except httpx.HTTPError:
             pass
     raise RuntimeError("No description after retries")
 
 
 def parse(text):
+    if "{" not in text or "}" not in text:
+        return fallback(text)
     data = json.loads(text[text.find("{"): text.rfind("}") + 1])
     return {
         "number_people": int(data["number_people"]),
@@ -41,6 +43,19 @@ def parse(text):
         "child": bool(data["child"]),
         "description": str(data["description"]),
         "activity": str(data["activity"]),
+    }
+
+
+def fallback(text):
+    return {
+        "number_people": None,
+        "day_night": "unknown",
+        "lighting_quality": "unknown",
+        "blur": None,
+        "picture_quality": "unknown",
+        "child": None,
+        "description": text,
+        "activity": "unknown",
     }
 
 
@@ -58,6 +73,7 @@ def describe_ollama(path, prompt=DEFAULT_PROMPT, model=OLLAMA_MODEL, timeout=600
         "prompt": prompt,
         "images": [image_data(path)],
         "stream": False,
+        "format": "json",
         "options": {"num_predict": num_predict},
     }
     r = httpx.post(f"{OLLAMA_URL}/api/generate", json=body, timeout=timeout)
