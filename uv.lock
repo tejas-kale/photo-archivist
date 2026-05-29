@@ -1860,9 +1860,13 @@ dependencies = [
     { name = "click" },
     { name = "httpx" },
     { name = "mlx-vlm" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "osxphotos" },
     { name = "pillow" },
+    { name = "pyyaml" },
     { name = "sqlite-utils" },
+    { name = "transformers" },
 ]
 
 [package.metadata]
@@ -1870,9 +1874,12 @@ requires-dist = [
     { name = "click", specifier = ">=8.4.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mlx-vlm", specifier = ">=0.5.0" },
+    { name = "numpy", specifier = ">=2.0.0" },
     { name = "osxphotos", specifier = ">=0.75.9" },
     { name = "pillow", specifier = ">=12.2.0" },
+    { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "sqlite-utils", specifier = ">=3.39" },
+    { name = "transformers", specifier = ">=4.50.0" },
 ]
 
 [[package]]
