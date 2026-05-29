@@ -25,6 +25,7 @@ def root():
 def db():
     con = sqlite3.connect(root() / "faces.db")
     con.execute("create table if not exists faces (id integer primary key, source text not null, source_id text not null, embedding blob not null, bbox_x1 int, bbox_y1 int, bbox_x2 int, bbox_y2 int, det_score real, indexed_at text)")
+    con.execute("create table if not exists face_labels (face_id integer primary key, name text not null, labelled_at text)")
     return con
 
 
@@ -64,6 +65,15 @@ def store_face_embeddings(source: str, source_id: str, faces: list[FaceEmbedding
         ids.append(cur.lastrowid)
     con.commit()
     return ids
+
+
+def label_face(face_id: int, name: str):
+    db().execute("insert or replace into face_labels values (?, ?, ?)", (face_id, name, datetime.now(timezone.utc).isoformat())).connection.commit()
+
+
+def name_for_face(face_id: int) -> str | None:
+    row = db().execute("select name from face_labels where face_id = ?", (face_id,)).fetchone()
+    return row[0] if row else None
 
 
 def find_similar_faces(query_path: Path, top_k: int = 10) -> list[dict]:

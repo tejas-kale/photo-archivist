@@ -20,6 +20,16 @@ class StructureTests(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
         self.assertIn("--source", result.output)
 
+    def test_label_face_cli(self):
+        import archive
+
+        with patch.object(archive.faces, "label_face") as label:
+            result = CliRunner().invoke(archive.cli, ["label-face", "42", "Tejas"])
+
+        self.assertEqual(0, result.exit_code)
+        label.assert_called_once_with(42, "Tejas")
+        self.assertIn("labelled face 42 as Tejas", result.output)
+
     def test_source_media_shape(self):
         from sources.base import SourceMedia
 

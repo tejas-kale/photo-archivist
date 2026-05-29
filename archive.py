@@ -24,8 +24,9 @@ def source_media(source):
     return onedrive.media(source)
 
 
-@click.command()
-@click.option("--source", required=True, help="photos, onedrive, or a file/directory path")
+@click.group(invoke_without_command=True)
+@click.pass_context
+@click.option("--source", required=False, help="photos, onedrive, or a file/directory path")
 @click.option("--db", "db_path", default="archive.db", show_default=True)
 @click.option("--backend", default=describe.DEFAULT_BACKEND, show_default=True)
 @click.option("--model", default=None)
@@ -37,7 +38,11 @@ def source_media(source):
 @click.option("--geocode/--no-geocode", "write_geocode", default=True, show_default=True)
 @click.option("--faces/--no-faces", "write_faces", default=True, show_default=True)
 @click.option("--verbose", is_flag=True)
-def cli(source, db_path, backend, model, limit, retries, preview, write_embedding, write_sidecar, write_geocode, write_faces, verbose):
+def cli(ctx, source, db_path, backend, model, limit, retries, preview, write_embedding, write_sidecar, write_geocode, write_faces, verbose):
+    if ctx.invoked_subcommand:
+        return
+    if not source:
+        raise click.UsageError("Missing option '--source'.")
     for i, media in enumerate(source_media(source), start=1):
         if limit and i > limit:
             return
@@ -71,6 +76,14 @@ def cli(source, db_path, backend, model, limit, retries, preview, write_embeddin
         if write_sidecar:
             click.echo(f"📝 {sidecars.write(media, data, photo_metadata, location, found_faces, face_ids)}")
         click.echo("✅ archived")
+
+
+@cli.command("label-face")
+@click.argument("face_id", type=int)
+@click.argument("name")
+def label_face(face_id, name):
+    faces.label_face(face_id, name)
+    click.echo(f"labelled face {face_id} as {name}")
 
 
 if __name__ == "__main__":

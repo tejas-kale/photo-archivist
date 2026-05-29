@@ -59,6 +59,17 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         locator.reverse.assert_called_once_with((51.501, -0.123), exactly_one=True, timeout=10)
         sleep.assert_called_once_with(1.1)
 
+    def test_face_labels_round_trip(self):
+        import faces
+
+        face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
+        with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
+            face_id = faces.store_face_embeddings("photos", "uuid", [face])[0]
+            faces.label_face(face_id, "Tejas")
+            name = faces.name_for_face(face_id)
+
+        self.assertEqual("Tejas", name)
+
     def test_face_db_stores_and_finds_similar_faces(self):
         import faces
 

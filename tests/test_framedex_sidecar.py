@@ -24,7 +24,8 @@ class FramedexSidecarTests(unittest.TestCase):
             location = LocationResult("London, UK", "London", "United Kingdom", "gb")
             vision = VisionResult(description_prose="Two lines\nof prose", people_count=2, keywords=["family"], rating="keep", lighting="daylight", time_of_day="day", dominant_colors=["blue"], dominant_color_palette="cool blue")
             face = FaceEmbedding(b"1234", (1, 2, 3, 4), 0.91)
-            path = sidecar.write(media, vision, meta, location, [face], [42], datetime(2026, 5, 29, tzinfo=timezone.utc))
+            with unittest.mock.patch.object(sidecar.faces_db, "name_for_face", return_value="Tejas"):
+                path = sidecar.write(media, vision, meta, location, [face], [42], datetime(2026, 5, 29, tzinfo=timezone.utc))
             text = path.read_text()
 
         frontmatter = yaml.safe_load(text.split("---")[1])
@@ -33,6 +34,7 @@ class FramedexSidecarTests(unittest.TestCase):
         self.assertEqual("London, UK", frontmatter["location"]["place"])
         self.assertEqual("high", frontmatter["faces"][0]["detection_quality"])
         self.assertEqual(42, frontmatter["faces"][0]["face_embedding_id"])
+        self.assertEqual("Tejas", frontmatter["faces"][0]["person_name"])
         self.assertEqual("onedrive", frontmatter["source"]["type"])
         self.assertIn("## Description\nTwo lines\nof prose", text)
 

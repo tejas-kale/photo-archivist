@@ -3,6 +3,7 @@ from pathlib import Path
 
 import yaml
 
+import faces as faces_db
 from describe import VisionResult
 from faces import FaceEmbedding
 from geocode import LocationResult
@@ -74,7 +75,12 @@ def album(media):
 
 
 def face_row(face, ids, index):
-    return {"bbox": list(face.bbox), "detection_quality": quality(face.det_score), "face_embedding_id": ids[index] if index < len(ids) else None, "cluster_id": None}
+    face_id = ids[index] if index < len(ids) else None
+    row = {"bbox": list(face.bbox), "detection_quality": quality(face.det_score), "face_embedding_id": face_id, "cluster_id": None}
+    name = faces_db.name_for_face(face_id) if face_id else None
+    if name:
+        row["person_name"] = name
+    return row
 
 
 def quality(score):
