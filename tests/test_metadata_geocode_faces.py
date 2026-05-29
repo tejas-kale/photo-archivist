@@ -59,6 +59,29 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         locator.reverse.assert_called_once_with((51.501, -0.123), exactly_one=True, timeout=10)
         sleep.assert_called_once_with(1.1)
 
+    def test_face_storage_is_idempotent_for_source_bbox(self):
+        import faces
+
+        face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
+        with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
+            first = faces.store_face_embeddings("photos", "uuid", [face])
+            second = faces.store_face_embeddings("photos", "uuid", [face])
+
+        self.assertEqual(first, second)
+
+    def test_infers_name_from_nearest_labelled_face(self):
+        import faces
+
+        labelled = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
+        unlabelled = faces.FaceEmbedding(np.array([0.99, 0.01], dtype="float32").tobytes(), (5, 6, 7, 8), 0.9)
+        with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
+            labelled_id = faces.store_face_embeddings("photos", "a", [labelled])[0]
+            unlabelled_id = faces.store_face_embeddings("photos", "b", [unlabelled])[0]
+            faces.label_face(labelled_id, "Ishwa")
+            name = faces.name_for_face(unlabelled_id)
+
+        self.assertEqual("Ishwa", name)
+
     def test_face_labels_round_trip(self):
         import faces
 
