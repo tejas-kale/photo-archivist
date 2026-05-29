@@ -2,6 +2,7 @@ import base64
 import os
 from pathlib import Path
 
+import click
 import httpx
 
 
@@ -26,7 +27,18 @@ def describe_image(path, prompt=DEFAULT_PROMPT, model=None, timeout=120):
     return r.json()["response"]
 
 
-if __name__ == "__main__":
-    import sys
+@click.command()
+@click.argument("image", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--prompt", default=DEFAULT_PROMPT, show_default=False)
+@click.option("--model", default=None, help=f"Default: {DEFAULT_MODEL}")
+@click.option("--timeout", default=120, show_default=True)
+def cli(image, prompt, model, timeout):
+    click.echo(f"🔎 Reading {image}")
+    click.echo(f"🧠 Asking {model or DEFAULT_MODEL}")
+    click.echo("📝 Description:")
+    click.echo(describe_image(image, prompt, model, timeout))
+    click.echo("✅ Done")
 
-    print(describe_image(sys.argv[1]))
+
+if __name__ == "__main__":
+    cli()
