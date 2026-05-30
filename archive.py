@@ -8,6 +8,7 @@ import embed
 import faces
 import geocode
 import metadata
+import ollama_ctl
 import sidecar as sidecars
 import store
 from sources import onedrive
@@ -26,6 +27,10 @@ def source_media(source=None, image=None, limit=None):
     return onedrive.media(ONEDRIVE_PATH if source in (None, "onedrive") else source, limit=limit)
 
 
+def embedding_blob(path, subprocess_mode):
+    return embed.embedding_blob_subprocess(path) if subprocess_mode else embed.embedding_blob(path)
+
+
 @click.group(invoke_without_command=True)
 @click.pass_context
 @click.option("--source", default="onedrive", show_default=True, help="onedrive or a file/directory path")
@@ -37,14 +42,23 @@ def source_media(source=None, image=None, limit=None):
 @click.option("--retries", default=2, show_default=True)
 @click.option("--preview", is_flag=True, help="Open each image in Preview.app")
 @click.option("--embed/--no-embed", "write_embedding", default=False, show_default=True)
+@click.option("--embed-subprocess/--no-embed-subprocess", default=True, show_default=True)
 @click.option("--sidecar/--no-sidecar", "write_sidecar", default=True, show_default=True)
 @click.option("--geocode/--no-geocode", "write_geocode", default=True, show_default=True)
 @click.option("--faces/--no-faces", "write_faces", default=True, show_default=True)
+@click.option("--manage-ollama", is_flag=True)
+@click.option("--restart-ollama-every", type=int, default=None)
+@click.option("--cooldown", type=float, default=0.0, show_default=True)
 @click.option("--verbose", is_flag=True)
-def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, write_embedding, write_sidecar, write_geocode, write_faces, verbose):
+def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, write_embedding, embed_subprocess, write_sidecar, write_geocode, write_faces, manage_ollama, restart_ollama_every, cooldown, verbose):
     if ctx.invoked_subcommand:
         return
+    if restart_ollama_every and not manage_ollama:
+        raise click.ClickException("--restart-ollama-every requires --manage-ollama")
+    if manage_ollama:
+        ollama_ctl.restart(cooldown)
     processed = 0
+    attempted = 0
     for media in source_media(source, image, limit):
         click.echo(f"🔎 {media.path}")
         if preview:
@@ -63,10 +77,13 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
             data = describe.coerce(describe.describe(media.path, backend=backend, model=model, retries=retries))
         except RuntimeError as e:
             click.echo(f"⚠️ skipped {media.path}: {e}")
+            attempted += 1
+            if restart_ollama_every and attempted % restart_ollama_every == 0:
+                ollama_ctl.restart(cooldown)
             continue
         if verbose and write_embedding:
             click.echo("🧬 embedding")
-        vector = embed.embedding_blob(media.path) if write_embedding else None
+        vector = embedding_blob(media.path, embed_subprocess) if write_embedding else None
         found_faces = []
         face_ids = []
         if write_faces:
@@ -81,8 +98,13 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
             click.echo(f"📝 {sidecars.write(media, data, photo_metadata, location, found_faces, face_ids)}")
         click.echo("✅ archived")
         processed += 1
+        attempted += 1
+        if restart_ollama_every and attempted % restart_ollama_every == 0:
+            ollama_ctl.restart(cooldown)
         if limit and processed >= limit:
             break
+    if manage_ollama:
+        ollama_ctl.stop()
 
 
 @cli.command("label-face")

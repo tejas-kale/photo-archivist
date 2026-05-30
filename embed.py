@@ -1,3 +1,7 @@
+import argparse
+import base64
+import subprocess
+import sys
 from functools import cache
 
 import numpy as np
@@ -24,3 +28,19 @@ def embedding(path):
 
 def embedding_blob(path):
     return embedding(path).tobytes()
+
+
+def embedding_blob_subprocess(path):
+    r = subprocess.run([sys.executable, "-m", "embed", str(path)], check=True, capture_output=True, text=True)
+    return base64.b64decode(r.stdout.strip())
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("image")
+    args = p.parse_args()
+    print(base64.b64encode(embedding_blob(args.image)).decode())
+
+
+if __name__ == "__main__":
+    main()

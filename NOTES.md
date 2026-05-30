@@ -4,6 +4,13 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### Overnight resource controls (Session 6, 30 May)
+
+- `--embed` now uses `embed.embedding_blob_subprocess()` by default, invoking `python -m embed <image>` per image so PyTorch/CLIP memory exits with the worker process
+- Added `--no-embed-subprocess` for faster in-process embeddings when memory pressure is acceptable
+- Added `ollama_ctl.py` plus `--manage-ollama`, `--restart-ollama-every N`, and `--cooldown SECONDS` so long runs can restart Ollama every 20-25 images
+- `--restart-ollama-every` requires `--manage-ollama` to avoid killing a manually managed Ollama server
+
 ### Model quality evaluation workflow (Session 5, 30 May)
 
 - Added `model_eval.py` to compare Ollama models on a fixed image list without archiving or writing sidecars
