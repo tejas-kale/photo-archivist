@@ -65,6 +65,27 @@ class StructureTests(unittest.TestCase):
         self.assertEqual("onedrive", found[0].source)
         self.assertEqual(image.resolve(), found[0].path)
 
+    def test_filesystem_source_finds_nested_images(self):
+        from sources.onedrive import media
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            image = root / "a" / "b" / "c.heic"
+            image.parent.mkdir(parents=True)
+            image.write_bytes(b"heic")
+
+            found = list(media(root))
+
+        self.assertEqual([image.resolve()], [item.path for item in found])
+
+    def test_archive_cli_uses_onedrive_personal_pictures(self):
+        import archive
+
+        with patch.object(archive.onedrive, "media", return_value=[]) as media:
+            list(archive.source_media("onedrive"))
+
+        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures")
+
     def test_archive_cli_accepts_specific_image_path(self):
         import archive
 
@@ -108,6 +129,29 @@ class StructureTests(unittest.TestCase):
         store_faces.assert_called_once_with(item.source, item.source_id, [])
         save.assert_called_once_with(item, data, b"vector", "test.db", ANY, None, 0)
         sidecar.assert_called_once_with(item, data, ANY, None, [], [])
+
+    def test_archive_source_media_passes_limit_to_apple_photos(self):
+        import archive
+
+        with patch.object(archive.store, "db", return_value="db") as db, patch.object(archive.apple_photos, "media", return_value=[]) as media:
+            list(archive.source_media("photos", db_path="archive.db", limit=1))
+
+        db.assert_called_once_with("archive.db")
+        media.assert_called_once_with(db="db", limit=1)
+
+    def test_archive_cli_limit_does_not_request_extra_media(self):
+        import archive
+        from sources.base import SourceMedia
+
+        def media():
+            yield SourceMedia("onedrive", "id", Path("x.jpg"), {})
+            raise AssertionError("extra media requested")
+
+        data = archive.describe.VisionResult(description_prose="caption")
+        with patch.object(archive, "source_media", return_value=media()), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob"), patch.object(archive.faces, "detect_faces", return_value=[]), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save"), patch.object(archive.sidecars, "write"):
+            result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--limit", "1", "--no-embed"])
+
+        self.assertEqual(0, result.exit_code)
 
     def test_archive_cli_can_skip_embeddings(self):
         import archive

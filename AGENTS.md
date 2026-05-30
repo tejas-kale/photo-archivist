@@ -10,4 +10,5 @@
 - Treat source selection, Photos library access, OneDrive path handling, image paths, EXIF extraction, geocoding, face detection, Ollama/mlx-vlm requests, embeddings, SQLite rows, sidecars, and open-original behaviour as behaviours that need tests when touched.
 - Keep config strict. Missing required values should raise rather than silently invent defaults.
 - Make atomic commits: one coherent change per commit, with tests/docs included when relevant.
+- Keep `NOTES.md` current. Add new decisions/rationale/evidence when changing behaviour, adding features, or hitting unexpected constraints. Use the same table format as the existing entries.
 - Do not add comments unless they explain a non-obvious constraint.
