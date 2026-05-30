@@ -99,5 +99,16 @@ def backfill_crops():
     click.echo(f"backfill: {created} crops created, {skipped} skipped (source unavailable)")
 
 
+@cli.command("serve-faces")
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8714, show_default=True)
+def serve_faces(host, port):
+    import uvicorn
+
+    from faceui import app
+
+    uvicorn.run(app, host=host, port=port)
+
+
 if __name__ == "__main__":
     cli()

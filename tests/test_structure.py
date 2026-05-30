@@ -27,6 +27,16 @@ class StructureTests(unittest.TestCase):
             list(archive.source_media("photos"))
         self.assertIn("Apple Photos", str(ctx.exception))
 
+    def test_serve_faces_cli(self):
+        import archive
+
+        with patch("uvicorn.run") as run:
+            result = CliRunner().invoke(archive.cli, ["serve-faces", "--host", "0.0.0.0", "--port", "9000"])
+        self.assertEqual(0, result.exit_code)
+        run.assert_called_once()
+        self.assertEqual("0.0.0.0", run.call_args.kwargs["host"])
+        self.assertEqual(9000, run.call_args.kwargs["port"])
+
     def test_label_face_cli(self):
         import archive
 

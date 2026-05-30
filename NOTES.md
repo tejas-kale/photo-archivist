@@ -20,6 +20,15 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - Added `normalized()` helper that L2-normalises raw embedding bytes on read (DB stores raw float32)
 - Added `backfill-crops` CLI subcommand: regenerates missing crops for existing `faces` rows, skips (warns) when source file is gone
 
+### FastAPI face labelling UI (Session 4, 30 May)
+
+- New module `faceui.py` — FastAPI app with Jinja2 template `templates/grid.html`
+- `serve-faces` CLI subcommand (host/port options) launches uvicorn
+- `GET /` — paginated grid of unlabelled faces with crop images + name inputs with autocomplete
+- `POST /label` — batch form submit `{face_id: name}`; blank fields skipped
+- `GET /faces/<id>.jpg` — serve crop JPEGs; `GET /names` — JSON list of existing names
+- Added `fastapi`, `uvicorn`, `jinja2`, `python-multipart` to pyproject.toml
+
 ### Bootstrapping (Session 1, 28 May)
 
 - Wired OpenRouter client in `describe.py` using httpx, then **replaced with Ollama** at user's request
