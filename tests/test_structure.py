@@ -101,14 +101,14 @@ class StructureTests(unittest.TestCase):
 
         item = SourceMedia("onedrive", "id", Path("x.jpg"), {"k": "v"})
         data = archive.describe.VisionResult(description_prose="line 1\nline 2", activity="playing chess")
-        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data) as describe, patch.object(archive.embed, "embedding_blob", return_value=b"vector") as embed, patch.object(archive.faces, "detect_faces", return_value=[]) as detect_faces, patch.object(archive.faces, "store_face_embeddings", return_value=[]) as store_faces, patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write", return_value=Path("x.jpg.description.md")) as sidecar:
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data) as describe, patch.object(archive.embed, "embedding_blob", return_value=b"vector") as embed, patch.object(archive.faces, "detect_faces", return_value=([], None)) as detect_faces, patch.object(archive.faces, "store_face_embeddings", return_value=[]) as store_faces, patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write", return_value=Path("x.jpg.description.md")) as sidecar:
             result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--db", "test.db"])
 
         self.assertEqual(0, result.exit_code)
         describe.assert_called_once_with(item.path, backend="ollama", model=None, retries=2)
         embed.assert_called_once_with(item.path)
         detect_faces.assert_called_once_with(item.path)
-        store_faces.assert_called_once_with(item.source, item.source_id, [])
+        store_faces.assert_called_once_with(item.source, item.source_id, [], None)
         save.assert_called_once_with(item, data, b"vector", "test.db", ANY, None, 0)
         sidecar.assert_called_once_with(item, data, ANY, None, [], [])
 
@@ -121,7 +121,7 @@ class StructureTests(unittest.TestCase):
             raise AssertionError("extra media requested")
 
         data = archive.describe.VisionResult(description_prose="caption")
-        with patch.object(archive, "source_media", return_value=media()), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob"), patch.object(archive.faces, "detect_faces", return_value=[]), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save"), patch.object(archive.sidecars, "write"):
+        with patch.object(archive, "source_media", return_value=media()), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob"), patch.object(archive.faces, "detect_faces", return_value=([], None)), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save"), patch.object(archive.sidecars, "write"):
             result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--limit", "1", "--no-embed"])
 
         self.assertEqual(0, result.exit_code)
@@ -132,7 +132,7 @@ class StructureTests(unittest.TestCase):
 
         item = SourceMedia("onedrive", "id", Path("x.jpg"), {})
         data = archive.describe.VisionResult(description_prose="caption")
-        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob") as embed, patch.object(archive.faces, "detect_faces", return_value=[]), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob") as embed, patch.object(archive.faces, "detect_faces", return_value=([], None)), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
             result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--no-embed"])
 
         self.assertEqual(0, result.exit_code)
@@ -159,7 +159,7 @@ class StructureTests(unittest.TestCase):
         from sources.base import SourceMedia
 
         item = SourceMedia("onedrive", "id", Path("x.jpg"), {})
-        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=archive.describe.VisionResult(description_prose="caption")), patch.object(archive.embed, "embedding_blob", return_value=b"vector"), patch.object(archive.faces, "detect_faces", return_value=[]), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save"), patch.object(archive.sidecars, "write"), patch.object(archive.subprocess, "run") as run:
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=archive.describe.VisionResult(description_prose="caption")), patch.object(archive.embed, "embedding_blob", return_value=b"vector"), patch.object(archive.faces, "detect_faces", return_value=([], None)), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save"), patch.object(archive.sidecars, "write"), patch.object(archive.subprocess, "run") as run:
             result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--preview"])
 
         self.assertEqual(0, result.exit_code)
@@ -170,7 +170,7 @@ class StructureTests(unittest.TestCase):
         from sources.base import SourceMedia
 
         item = SourceMedia("onedrive", "id", Path("x.jpg"), {})
-        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=archive.describe.VisionResult(description_prose="caption")), patch.object(archive.embed, "embedding_blob", return_value=b"vector"), patch.object(archive.faces, "detect_faces", return_value=[]), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save"), patch.object(archive.sidecars, "write"):
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=archive.describe.VisionResult(description_prose="caption")), patch.object(archive.embed, "embedding_blob", return_value=b"vector"), patch.object(archive.faces, "detect_faces", return_value=([], None)), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save"), patch.object(archive.sidecars, "write"):
             result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--verbose"])
 
         self.assertEqual(0, result.exit_code)

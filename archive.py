@@ -72,8 +72,8 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
         if write_faces:
             if verbose:
                 click.echo("🙂 faces")
-            found_faces = faces.detect_faces(media.path)
-            face_ids = faces.store_face_embeddings(media.source, media.source_id, found_faces)
+            found_faces, image_array = faces.detect_faces(media.path)
+            face_ids = faces.store_face_embeddings(media.source, media.source_id, found_faces, image_array)
         if verbose:
             click.echo("💾 saving")
         store.save(media, data, vector, db_path, photo_metadata, location, len(found_faces))
@@ -91,6 +91,12 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
 def label_face(face_id, name):
     faces.label_face(face_id, name)
     click.echo(f"labelled face {face_id} as {name}")
+
+
+@cli.command("backfill-crops")
+def backfill_crops():
+    created, skipped = faces.backfill_crops()
+    click.echo(f"backfill: {created} crops created, {skipped} skipped (source unavailable)")
 
 
 if __name__ == "__main__":

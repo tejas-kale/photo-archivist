@@ -13,6 +13,13 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - `sidecar.py` always writes sidecar beside the image (`<image>.description.md`); no more `apple_photos/` subdirectory
 - Deleted `tests/test_apple_photos.py`; stripped Photos branches from all tests
 
+### Face crops + embedding normalisation (Session 4, 30 May)
+
+- `detect_faces` now returns `(detections, image_array)` tuple so crops can be saved from the loaded RGB array
+- Crop stored at `~/.photo-archivist/faces/<face_id>.jpg` with 15% padding clamped to image bounds
+- Added `normalized()` helper that L2-normalises raw embedding bytes on read (DB stores raw float32)
+- Added `backfill-crops` CLI subcommand: regenerates missing crops for existing `faces` rows, skips (warns) when source file is gone
+
 ### Bootstrapping (Session 1, 28 May)
 
 - Wired OpenRouter client in `describe.py` using httpx, then **replaced with Ollama** at user's request
@@ -69,6 +76,16 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | `source_media("photos")` raises ValueError | Clear feedback that Photos is unsupported rather than silently interpreting as a path |
 | Drop `with_source_gps()` fallback chain | GPS passthrough from osxphotos metadata was the only consumer; EXIF is now the sole GPS source |
 | `sidecar.py` always writes beside image | No more `~/.photo-archivist/sidecars/apple_photos/` subdirectory; sidecars always live at `<image>.description.md` |
+
+### Face crop storage
+
+| Decision | Rationale |
+|---|---|
+| `CROP_PADDING = 0.15` (15% of bbox width/height) | Enough to include jaw/hairline without excessive background; clamped to image bounds |
+| Return `(detections, image_array)` from `detect_faces` | Avoids reading the file twice (once for insightface, once for crop); image is already in memory as RGB array |
+| Crops at `~/.photo-archivist/faces/<face_id>.jpg` | No schema change needed; filename derived from primary key |
+| Raw embedding stored in DB; `normalized()` helper for L2 | Keeps round-trip precision; `inferred_name()` already normalises via cosine, and the upcoming classifier will use `normalized()` consistently |
+| No `crop_status` column | Unavailable-source info is logged during backfill; a column adds schema migration cost for minimal value |
 
 ### Vision backend: Ollama, not OpenRouter
 
