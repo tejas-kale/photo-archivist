@@ -21,8 +21,8 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 
 ### HEIC vision conversion (Session 5, 30 May)
 
-- `describe.image_data()` now converts `.heic` and `.heif` files to JPEG bytes before sending them to Ollama
-- Ollama repeatedly failed on raw HEIC payloads with exhausted description retries; JPEG conversion keeps HEIC source support without changing stored originals or sidecars
+- `describe.image_data()` now converts image payloads to RGB JPEG and resizes them within 1280x1280 before sending them to Ollama
+- Ollama repeatedly failed on raw HEIC payloads and later consumed too much memory on full-resolution images; bounded JPEG conversion keeps source support without changing stored originals or sidecars
 
 ### Per-image description failure handling (Session 5, 30 May)
 

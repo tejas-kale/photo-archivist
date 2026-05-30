@@ -55,7 +55,7 @@ class StructuredTests(unittest.TestCase):
         image = Path(__file__)
         response = Mock()
         response.json.return_value = {"response": "{}"}
-        with patch.object(describe.httpx, "post", return_value=response) as post:
+        with patch.object(describe, "image_data", return_value="image"), patch.object(describe.httpx, "post", return_value=response) as post:
             describe.describe_ollama(image)
 
         body = post.call_args.kwargs["json"]
@@ -63,19 +63,34 @@ class StructuredTests(unittest.TestCase):
         self.assertEqual("gemma4:e2b", body["model"])
         self.assertEqual(768, body["options"]["num_predict"])
 
-    def test_heic_image_data_is_converted_to_jpeg(self):
+    def test_image_data_is_converted_resized_jpeg(self):
         import describe
 
         image = Mock()
         converted = Mock()
-        converted.save.side_effect = lambda buf, format: buf.write(b"jpeg")
+        converted.save.side_effect = lambda buf, format, quality: buf.write(b"jpeg")
         image.convert.return_value = converted
         with patch.object(describe, "register_heif_opener") as register, patch.object(describe.Image, "open", return_value=image):
             data = base64.b64decode(describe.image_data(Path("x.heic")))
 
         register.assert_called_once_with()
         image.convert.assert_called_once_with("RGB")
+        converted.thumbnail.assert_called_once_with((1280, 1280))
         converted.save.assert_called_once()
+        self.assertEqual(b"jpeg", data)
+
+    def test_jpeg_image_data_is_also_resized(self):
+        import describe
+
+        image = Mock()
+        converted = Mock()
+        converted.save.side_effect = lambda buf, format, quality: buf.write(b"jpeg")
+        image.convert.return_value = converted
+        with patch.object(describe, "register_heif_opener") as register, patch.object(describe.Image, "open", return_value=image):
+            data = base64.b64decode(describe.image_data(Path("x.jpg")))
+
+        register.assert_not_called()
+        converted.thumbnail.assert_called_once_with((1280, 1280))
         self.assertEqual(b"jpeg", data)
 
     def test_store_adds_new_columns_to_existing_database(self):

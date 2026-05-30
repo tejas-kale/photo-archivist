@@ -47,10 +47,11 @@ def image_data(path):
     path = Path(path)
     if path.suffix.lower() in {".heic", ".heif"}:
         register_heif_opener()
-        buf = BytesIO()
-        Image.open(path).convert("RGB").save(buf, format="JPEG")
-        return base64.b64encode(buf.getvalue()).decode()
-    return base64.b64encode(path.read_bytes()).decode()
+    image = Image.open(path).convert("RGB")
+    image.thumbnail((1280, 1280))
+    buf = BytesIO()
+    image.save(buf, format="JPEG", quality=85)
+    return base64.b64encode(buf.getvalue()).decode()
 
 
 def describe(path, prompt=DEFAULT_PROMPT, backend=DEFAULT_BACKEND, model=None, retries=2):
