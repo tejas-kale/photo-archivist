@@ -20,15 +20,12 @@ class StructureTests(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
         self.assertIn("--source", result.output)
 
-    def test_open_photos_cli(self):
+    def test_source_media_rejects_photos(self):
         import archive
 
-        with patch.object(archive.open_original, "open_original") as open_original:
-            result = CliRunner().invoke(archive.cli, ["open-photos", "uuid"])
-
-        self.assertEqual(0, result.exit_code)
-        open_original.assert_called_once_with("photos", "uuid", None)
-        self.assertIn("opened Photos item uuid", result.output)
+        with self.assertRaises(ValueError) as ctx:
+            list(archive.source_media("photos"))
+        self.assertIn("Apple Photos", str(ctx.exception))
 
     def test_label_face_cli(self):
         import archive
@@ -98,21 +95,6 @@ class StructureTests(unittest.TestCase):
         self.assertEqual("onedrive", found[0].source)
         self.assertEqual(image.resolve(), found[0].path)
 
-    def test_archive_cli_uses_source_gps_when_exif_lacks_it(self):
-        import archive
-        from metadata import PhotoMetadata
-        from sources.base import SourceMedia
-
-        item = SourceMedia("photos", "id", Path("x.jpg"), {"gps_lat": 51.5, "gps_lon": -0.1, "gps_altitude_m": 42.0})
-        photo_metadata = PhotoMetadata(None, None, None, None, None, None, None, None, None)
-        data = archive.describe.VisionResult(description_prose="caption")
-        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=photo_metadata), patch.object(archive.geocode, "reverse_geocode", return_value=None) as reverse, patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob", return_value=b"vector"), patch.object(archive.faces, "detect_faces", return_value=[]), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
-            result = CliRunner().invoke(archive.cli, ["--source", "photos"])
-
-        self.assertEqual(0, result.exit_code)
-        reverse.assert_called_once_with(51.5, -0.1)
-        self.assertEqual(51.5, save.call_args.args[4].gps_lat)
-
     def test_archive_cli_wires_description_embedding_store_and_sidecar(self):
         import archive
         from sources.base import SourceMedia
@@ -129,15 +111,6 @@ class StructureTests(unittest.TestCase):
         store_faces.assert_called_once_with(item.source, item.source_id, [])
         save.assert_called_once_with(item, data, b"vector", "test.db", ANY, None, 0)
         sidecar.assert_called_once_with(item, data, ANY, None, [], [])
-
-    def test_archive_source_media_passes_limit_to_apple_photos(self):
-        import archive
-
-        with patch.object(archive.store, "db", return_value="db") as db, patch.object(archive.apple_photos, "media", return_value=[]) as media:
-            list(archive.source_media("photos", db_path="archive.db", limit=1))
-
-        db.assert_called_once_with("archive.db")
-        media.assert_called_once_with(db="db", limit=1)
 
     def test_archive_cli_limit_does_not_request_extra_media(self):
         import archive

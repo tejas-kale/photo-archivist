@@ -17,10 +17,6 @@ def root():
 
 
 def path_for(media):
-    if media.source == "photos":
-        path = root() / "sidecars" / "apple_photos" / f"{media.source_id}.md"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        return path
     return media.path.with_name(f"{media.path.stem}.description.md")
 
 
@@ -66,7 +62,7 @@ def resolution(photo_metadata):
 
 
 def source_type(source):
-    return "apple_photos" if source == "photos" else "onedrive"
+    return "onedrive"
 
 
 def album(media):

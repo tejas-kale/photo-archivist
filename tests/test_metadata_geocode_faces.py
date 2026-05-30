@@ -64,8 +64,8 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
 
         face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
-            first = faces.store_face_embeddings("photos", "uuid", [face])
-            second = faces.store_face_embeddings("photos", "uuid", [face])
+            first = faces.store_face_embeddings("onedrive", "uuid", [face])
+            second = faces.store_face_embeddings("onedrive", "uuid", [face])
 
         self.assertEqual(first, second)
 
@@ -75,8 +75,8 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         labelled = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         unlabelled = faces.FaceEmbedding(np.array([0.99, 0.01], dtype="float32").tobytes(), (5, 6, 7, 8), 0.9)
         with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
-            labelled_id = faces.store_face_embeddings("photos", "a", [labelled])[0]
-            unlabelled_id = faces.store_face_embeddings("photos", "b", [unlabelled])[0]
+            labelled_id = faces.store_face_embeddings("onedrive", "a", [labelled])[0]
+            unlabelled_id = faces.store_face_embeddings("onedrive", "b", [unlabelled])[0]
             faces.label_face(labelled_id, "Ishwa")
             name = faces.name_for_face(unlabelled_id)
 
@@ -87,7 +87,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
 
         face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
-            face_id = faces.store_face_embeddings("photos", "uuid", [face])[0]
+            face_id = faces.store_face_embeddings("onedrive", "uuid", [face])[0]
             faces.label_face(face_id, "Tejas")
             name = faces.name_for_face(face_id)
 
@@ -99,11 +99,11 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         query = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (5, 6, 7, 8), 0.9)
         with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)), patch.object(faces, "detect_faces", return_value=[query]):
-            ids = faces.store_face_embeddings("photos", "uuid", [face])
+            ids = faces.store_face_embeddings("onedrive", "uuid", [face])
             rows = faces.find_similar_faces(Path("x.jpg"), top_k=1)
 
         self.assertEqual([1], ids)
-        self.assertEqual("photos", rows[0]["source"])
+        self.assertEqual("onedrive", rows[0]["source"])
         self.assertAlmostEqual(1.0, rows[0]["cosine_similarity"])
         self.assertEqual([1, 2, 3, 4], rows[0]["bbox"])
 

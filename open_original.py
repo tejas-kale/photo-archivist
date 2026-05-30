@@ -1,9 +1,6 @@
 import subprocess
+from pathlib import Path
 
 
-def open_original(source, source_id, path):
-    if source == "photos":
-        script = f'tell application "Photos" to spotlight media item id "{source_id}"'
-        subprocess.run(["osascript", "-e", script], check=True)
-        return
+def open_original(path):
     subprocess.run(["open", "-R", str(path)], check=True)

@@ -94,7 +94,7 @@ class StructuredTests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as d:
             db_path = Path(d) / "archive.db"
-            media = SourceMedia("photos", "uuid", Path("/tmp/IMG_1234.jpeg"), {})
+            media = SourceMedia("onedrive", "uuid", Path("/tmp/IMG_1234.jpeg"), {})
             store.save(media, data, None, db_path)
             row = sqlite_utils.Database(db_path)["media"].get("IMG_1234")
 

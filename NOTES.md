@@ -2,7 +2,16 @@
 
 ## What was done
 
-photo-archivist is a Python 3.12+ CLI that archives images from Apple Photos, OneDrive, or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
+photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
+
+### Removed Apple Photos; OneDrive-only (Session 4, 30 May)
+
+- Dropped `sources/apple_photos.py` and `osxphotos` dependency
+- Removed `--source photos` semantics, `open-photos` subcommand, and `db_path`/iCloud eviction plumbing
+- `source_media()` now only resolves OneDrive default + local path / `--image`
+- Collapsed `open_original.py` to just `open -R` (removed AppleScript Photos branch)
+- `sidecar.py` always writes sidecar beside the image (`<image>.description.md`); no more `apple_photos/` subdirectory
+- Deleted `tests/test_apple_photos.py`; stripped Photos branches from all tests
 
 ### Bootstrapping (Session 1, 28 May)
 
@@ -50,6 +59,16 @@ photo-archivist is a Python 3.12+ CLI that archives images from Apple Photos, On
 ---
 
 ## Decisions made and rationale
+
+### Removed Apple Photos
+
+| Decision | Rationale |
+|---|---|
+| Drop Apple Photos support entirely | OneDrive is the primary repository; Photos adds significant complexity (iCloud stubs, brctl, PhotoExporter, osxphotos) with diminishing value |
+| Drop `osxphotos` dependency | Only used for Photos source; removing it simplifies the dependency tree |
+| `source_media("photos")` raises ValueError | Clear feedback that Photos is unsupported rather than silently interpreting as a path |
+| Drop `with_source_gps()` fallback chain | GPS passthrough from osxphotos metadata was the only consumer; EXIF is now the sole GPS source |
+| `sidecar.py` always writes beside image | No more `~/.photo-archivist/sidecars/apple_photos/` subdirectory; sidecars always live at `<image>.description.md` |
 
 ### Vision backend: Ollama, not OpenRouter
 

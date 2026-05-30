@@ -13,7 +13,7 @@ from sources.base import SourceMedia
 
 
 class FramedexSidecarTests(unittest.TestCase):
-    def test_writes_framedex_sidecar_for_onedrive(self):
+    def test_writes_sidecar_for_onedrive(self):
         import sidecar
 
         with tempfile.TemporaryDirectory() as d:
@@ -38,19 +38,16 @@ class FramedexSidecarTests(unittest.TestCase):
         self.assertEqual("onedrive", frontmatter["source"]["type"])
         self.assertIn("## Description\nTwo lines\nof prose", text)
 
-    def test_writes_apple_photos_sidecar_under_home(self):
+    def test_sidecar_path_is_beside_image(self):
         import sidecar
 
-        with tempfile.TemporaryDirectory() as d, unittest.mock.patch.object(sidecar, "root", return_value=Path(d)):
+        with tempfile.TemporaryDirectory() as d:
             image = Path(d) / "IMG_1234.jpeg"
             image.write_bytes(b"image")
-            media = SourceMedia("photos", "uuid", image, {"albums": ["Trip"]})
-            meta = PhotoMetadata(None, None, None, None, None, None, None, None, None)
-            vision = VisionResult(description_prose="caption")
-            path = sidecar.write(media, vision, meta)
-            self.assertTrue(path.exists())
+            media = SourceMedia("onedrive", "rel/IMG_1234.jpeg", image, {})
+            path = sidecar.path_for(media)
 
-        self.assertEqual(Path(d) / "sidecars" / "apple_photos" / "uuid.md", path)
+        self.assertEqual(image.with_name(f"{image.stem}.description.md"), path)
 
 
 if __name__ == "__main__":
