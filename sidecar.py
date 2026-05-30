@@ -17,10 +17,6 @@ def root():
 
 
 def path_for(media):
-    if media.source == "photos":
-        path = root() / "sidecars" / "apple_photos" / f"{media.source_id}.md"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        return path
     return media.path.with_name(f"{media.path.stem}.description.md")
 
 
@@ -66,7 +62,7 @@ def resolution(photo_metadata):
 
 
 def source_type(source):
-    return "apple_photos" if source == "photos" else "onedrive"
+    return "onedrive"
 
 
 def album(media):
@@ -77,10 +73,41 @@ def album(media):
 def face_row(face, ids, index):
     face_id = ids[index] if index < len(ids) else None
     row = {"bbox": list(face.bbox), "detection_quality": quality(face.det_score), "face_embedding_id": face_id, "cluster_id": None}
-    name = faces_db.name_for_face(face_id) if face_id else None
-    if name:
-        row["person_name"] = name
+    details = faces_db.name_details_for_face(face_id) if face_id else None
+    if details:
+        apply_name(row, details)
     return row
+
+
+def apply_name(row, details):
+    row["person_name"] = details["name"]
+    row["name_source"] = details["source"]
+    row["confidence"] = details["confidence"]
+
+
+def refresh_sidecars(path: Path) -> int:
+    files = [path] if path.is_file() else sorted(path.rglob("*.description.md"))
+    updated = 0
+    for file in files:
+        text = file.read_text()
+        parts = text.split("---", 2)
+        if len(parts) < 3:
+            continue
+        frontmatter = yaml.safe_load(parts[1]) or {}
+        changed = False
+        for face in frontmatter.get("faces") or []:
+            face_id = face.get("face_embedding_id")
+            if not face_id:
+                continue
+            details = faces_db.name_details_for_face(face_id)
+            if not details:
+                continue
+            apply_name(face, details)
+            changed = True
+        if changed:
+            file.write_text("---\n" + yaml.dump(frontmatter, sort_keys=False) + "---" + parts[2])
+            updated += 1
+    return updated
 
 
 def quality(score):

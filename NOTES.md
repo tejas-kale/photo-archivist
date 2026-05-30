@@ -2,7 +2,80 @@
 
 ## What was done
 
-photo-archivist is a Python 3.12+ CLI that archives images from Apple Photos, OneDrive, or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
+photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
+
+### Model quality evaluation workflow (Session 5, 30 May)
+
+- Added `model_eval.py` to compare Ollama models on a fixed image list without archiving or writing sidecars
+- Added blind exports: `*_blind.csv`/`.jsonl` hide model names behind per-image variants, `*_key.csv` reveals the mapping after scoring, and `*_feedback_template.csv` is for human labels/scores
+- Added static feedback template examples in `eval/model_quality_feedback_template.csv` and `.json`
+- Added `eval/model_quality_images.txt` with the 17 currently available archived sidecar images; the target was 20, but only 17 usable sidecars existed at selection time while the 500-image run was still active
+- Added `eval/model_quality_rubric.md` with blind scoring guidance for people count, description usefulness, activity, lighting/time, rating, and JSON reliability
+
+### HEIC vision conversion (Session 5, 30 May)
+
+- `describe.image_data()` now converts `.heic` and `.heif` files to JPEG bytes before sending them to Ollama
+- Ollama repeatedly failed on raw HEIC payloads with exhausted description retries; JPEG conversion keeps HEIC source support without changing stored originals or sidecars
+
+### Per-image description failure handling (Session 5, 30 May)
+
+- Archive runs now catch exhausted description retries per image, print `⚠️ skipped <path>: <error>`, and continue to the next image
+- The failed image is not saved to `archive.db` and no sidecar is written, because there is no `VisionResult` to persist
+- Other unexpected failures still raise loudly
+
+### Embeddings opt-in (Session 5, 30 May)
+
+- `--embed/--no-embed` now defaults to `--no-embed`
+- The installed tool does not include PyTorch, so the previous default crashed at `CLIPModel.from_pretrained()` after description/geocoding had already run
+- Kept `--embed` for explicit CLIP runs when PyTorch is installed in the CLI environment
+- Updated README troubleshooting for the PyTorch/CLIPModel error
+
+### Random source limits (Session 5, 30 May)
+
+- `--source ... --limit N` now samples `N` images randomly instead of taking the first `N` paths from filesystem traversal
+- Sampling happens in `sources.onedrive.media()` after enumerating candidate image paths but before `ensure_local()`, so skipped OneDrive files are not read/downloaded
+- `--image` remains deterministic and returns only the requested file
+- Updated README to document random limit behaviour
+
+### Removed Apple Photos; OneDrive-only (Session 4, 30 May)
+
+- Dropped `sources/apple_photos.py` and `osxphotos` dependency
+- Removed `--source photos` semantics, `open-photos` subcommand, and `db_path`/iCloud eviction plumbing
+- `source_media()` now only resolves OneDrive default + local path / `--image`
+- Collapsed `open_original.py` to just `open -R` (removed AppleScript Photos branch)
+- `sidecar.py` always writes sidecar beside the image (`<image>.description.md`); no more `apple_photos/` subdirectory
+- Deleted `tests/test_apple_photos.py`; stripped Photos branches from all tests
+
+### Face crops + embedding normalisation (Session 4, 30 May)
+
+- `detect_faces` now returns `(detections, image_array)` tuple so crops can be saved from the loaded RGB array
+- Crop stored at `~/.photo-archivist/faces/<face_id>.jpg` with 15% padding clamped to image bounds
+- Added `normalized()` helper that L2-normalises raw embedding bytes on read (DB stores raw float32)
+- Added `backfill-crops` CLI subcommand: regenerates missing crops for existing `faces` rows, skips (warns) when source file is gone
+
+### FastAPI face labelling UI (Session 4, 30 May)
+
+- New module `faceui.py` — FastAPI app with Jinja2 template `templates/grid.html`
+- `serve-faces` CLI subcommand (host/port options) launches uvicorn
+- `GET /` — paginated grid of unlabelled faces with crop images + name inputs with autocomplete
+- `POST /label` — batch form submit `{face_id: name}`; blank fields skipped
+- `GET /faces/<id>.jpg` — serve crop JPEGs; `GET /names` — JSON list of existing names
+- Added `fastapi`, `uvicorn`, `jinja2`, `python-multipart` to pyproject.toml
+
+### Local face classifier (Session 4, 30 May)
+
+- Added `train_faces()` and `predict_name()` in `faces.py`
+- `train-faces` CLI subcommand trains a Logistic Regression classifier on L2-normalised labelled face embeddings
+- Classifier persists to `~/.photo-archivist/face_classifier.pkl` with label list, threshold, and normalisation flag
+- `predict_name()` returns `(None, confidence)` below threshold or when no model exists
+- Uses `scikit-learn`; reviewed Phase 0/1 behaviour: `--source` now defaults to OneDrive, and re-running face storage recreates a missing crop for an existing face row
+
+### Predicted names in sidecars (Session 4, 30 May)
+
+- `name_for_face()` now returns manual labels first, then classifier predictions, then `None` if no model or below threshold
+- `sidecar.py` writes `person_name`, `name_source`, and `confidence` per named face
+- Added `refresh-sidecars [path]` CLI command to rewrite existing `.description.md` files with current labels/predictions
+- Retained legacy `inferred_name()` as unused compatibility code for now; classifier is the active fallback
 
 ### Bootstrapping (Session 1, 28 May)
 
@@ -51,11 +124,50 @@ photo-archivist is a Python 3.12+ CLI that archives images from Apple Photos, On
 
 ## Decisions made and rationale
 
+### Removed Apple Photos
+
+| Decision | Rationale |
+|---|---|
+| Drop Apple Photos support entirely | OneDrive is the primary repository; Photos adds significant complexity (iCloud stubs, brctl, PhotoExporter, osxphotos) with diminishing value |
+| Drop `osxphotos` dependency | Only used for Photos source; removing it simplifies the dependency tree |
+| `source_media("photos")` raises ValueError | Clear feedback that Photos is unsupported rather than silently interpreting as a path |
+| Drop `with_source_gps()` fallback chain | GPS passthrough from osxphotos metadata was the only consumer; EXIF is now the sole GPS source |
+| `sidecar.py` always writes beside image | No more `~/.photo-archivist/sidecars/apple_photos/` subdirectory; sidecars always live at `<image>.description.md` |
+
+### Face crop storage
+
+| Decision | Rationale |
+|---|---|
+| `CROP_PADDING = 0.15` (15% of bbox width/height) | Enough to include jaw/hairline without excessive background; clamped to image bounds |
+| Return `(detections, image_array)` from `detect_faces` | Avoids reading the file twice (once for insightface, once for crop); image is already in memory as RGB array |
+| Crops at `~/.photo-archivist/faces/<face_id>.jpg` | No schema change needed; filename derived from primary key |
+| Raw embedding stored in DB; `normalized()` helper for L2 | Keeps round-trip precision; `inferred_name()` already normalises via cosine, and the upcoming classifier will use `normalized()` consistently |
+| No `crop_status` column | Unavailable-source info is logged during backfill; a column adds schema migration cost for minimal value |
+
+### Local face classifier
+
+| Decision | Rationale |
+|---|---|
+| Logistic Regression as first persisted model | Small, deterministic, probability output is enough for a local labelling loop |
+| Train on L2-normalised embeddings | Keeps classifier input consistent with cosine matching and future prototype comparisons |
+| Default abstain threshold `0.7` | Rejects weak binary decisions (~0.5) while accepting clear synthetic held-out matches; tune after real labels accumulate |
+| Persist pickle with model, labels, threshold, and normalisation flag | Single local artefact is easy to retrain and inspect; metadata avoids guessing preprocessing later |
+| Raise on fewer than two labelled faces/classes | A classifier trained on one class cannot make useful name decisions |
+
+### Predicted names in sidecars
+
+| Decision | Rationale |
+|---|---|
+| Manual labels override model predictions | `face_labels` is ground truth; classifier predictions are only a fallback |
+| Sidecars include `name_source` and `confidence` | Lets stale or weak predictions be audited without opening the DB |
+| Add `refresh-sidecars [path]` now | Retraining should update existing `.description.md` files, not just newly archived images |
+| Leave missing model as `None` | Sidecar generation should not crash just because the classifier has not been trained yet |
+
 ### Vision backend: Ollama, not OpenRouter
 
 | Decision | Rationale |
 |---|---|
-| Ollama (`gemma4:e4b`) as primary backend | User explicitly rejected OpenRouter; local, no API key, faster iteration |
+| Ollama (`gemma4:e2b`) as primary backend | User explicitly rejected OpenRouter; local, no API key, faster iteration; switched from `gemma4:e4b` for lower load |
 | `mlx-vlm` (Qwen3.5-VL-9B-4bit) as alternative | User wanted a fallback; MLX-native for Apple Silicon |
 | `DEFAULT_BACKEND = "ollama"` | User's explicit choice; mlx-vlm downloads PyTorch model binaries (605MB) |
 
@@ -68,13 +180,13 @@ photo-archivist is a Python 3.12+ CLI that archives images from Apple Photos, On
 | Fallback to plain text on parse failure | Ollama occasionally returns non-JSON despite format flag |
 | Retries with progressively stricter prompts | First attempt: standard prompt. Second: "Return valid JSON only." Third: original prompt |
 
-### CLIP embeddings: optional (`--no-embed`)
+### CLIP embeddings: optional (`--embed`)
 
 | Decision | Rationale |
 |---|---|
 | `openai/clip-vit-base-patch32` via transformers | Standard 512-dim embeddings for similarity search |
-| `--embed/--no-embed` flag (default: embed) | Model download is 605MB; first run takes 40s just to load |
-| User added `--no-embed` flag after seeing PyTorch download | PyTorch dependency is heavy and unnecessary for simple archiving |
+| `--embed/--no-embed` flag (default: no-embed) | PyTorch is not installed by default; embeddings remain opt-in for similarity search |
+| User hit missing PyTorch after the previous default tried CLIP | PyTorch dependency is heavy and unnecessary for simple archiving |
 
 ### Metadata extraction
 
@@ -142,7 +254,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from Apple Photos, On
 ### Ollama vs OpenRouter vs mlx-vlm
 
 - **OpenRouter** was implemented first (httpx to `/api/v1/chat/completions`). User said "Remove Openrouter configuration and add support for Ollama instead."
-- **Ollama** worked immediately with `gemma4:e4b`. Occasional empty responses fixed with retries. JSON format flag works most of the time but not always.
+- **Ollama** worked immediately with `gemma4:e4b`, then defaulted to `gemma4:e2b` to reduce load. On an M1 MacBook Air, `gemma4:e2b` processes each image noticeably faster and avoids making the machine unusable; output quality still needs comparison against `gemma4:e4b`. Occasional empty responses fixed with retries. JSON format flag works most of the time but not always.
 - **mlx-vlm** downloaded 605MB PyTorch model on first run, took >40s model load time. Kept as alternative backend but not default.
 
 ### brctl download failures

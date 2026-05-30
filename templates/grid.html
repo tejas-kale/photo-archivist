@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Face Labelling</title>
+<datalist id="names">{{names}}</datalist>
+<style>
+  body { font-family: system-ui; margin: 0; padding: 8px; background: #111; color: #eee; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .face-cell { display: flex; flex-direction: column; align-items: center; }
+  .face-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; }
+  .face-cell input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 4px 6px; border: 1px solid #444; border-radius: 4px; background: #222; color: #eee; }
+  .face-cell input:focus { outline: 2px solid #68f; }
+  .submit { margin: 16px 0; padding: 8px 24px; font-size: 16px; background: #68f; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+  .empty { text-align: center; color: #888; grid-column: 1 / -1; padding: 40px; }
+  .pager { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+  .pager a { color: #68f; text-decoration: none; }
+</style>
+</head>
+<body>
+<form method="post" action="/label">
+  <div class="pager">
+    <button class="submit" type="submit">Save All</button>
+  </div>
+  <div class="grid">{{items}}</div>
+</form>
+</body>
+</html>

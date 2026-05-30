@@ -1,5 +1,4 @@
 import subprocess
-from dataclasses import replace
 from pathlib import Path
 
 import click
@@ -9,30 +8,27 @@ import embed
 import faces
 import geocode
 import metadata
-import open_original
 import sidecar as sidecars
 import store
-from sources import apple_photos, onedrive
+from sources import onedrive
 from sources.base import SourceMedia
 
 
 ONEDRIVE_PATH = Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures"
 
 
-def source_media(source, image=None, db_path=None, limit=None):
+def source_media(source=None, image=None, limit=None):
+    if source == "photos":
+        raise ValueError("Apple Photos source is no longer supported. Use OneDrive or a local path.")
     if image:
         path = onedrive.ensure_local(image)
         return [SourceMedia("onedrive", str(path), path, {"path": str(path)})]
-    if source == "photos":
-        return apple_photos.media(db=store.db(db_path) if db_path else None, limit=limit)
-    if source == "onedrive":
-        return onedrive.media(ONEDRIVE_PATH)
-    return onedrive.media(source)
+    return onedrive.media(ONEDRIVE_PATH if source in (None, "onedrive") else source, limit=limit)
 
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-@click.option("--source", required=False, help="photos, onedrive, or a file/directory path")
+@click.option("--source", default="onedrive", show_default=True, help="onedrive or a file/directory path")
 @click.option("--image", type=click.Path(path_type=Path), help="Archive one image path")
 @click.option("--db", "db_path", default="archive.db", show_default=True)
 @click.option("--backend", default=describe.DEFAULT_BACKEND, show_default=True)
@@ -40,7 +36,7 @@ def source_media(source, image=None, db_path=None, limit=None):
 @click.option("--limit", default=None, type=int)
 @click.option("--retries", default=2, show_default=True)
 @click.option("--preview", is_flag=True, help="Open each image in Preview.app")
-@click.option("--embed/--no-embed", "write_embedding", default=True, show_default=True)
+@click.option("--embed/--no-embed", "write_embedding", default=False, show_default=True)
 @click.option("--sidecar/--no-sidecar", "write_sidecar", default=True, show_default=True)
 @click.option("--geocode/--no-geocode", "write_geocode", default=True, show_default=True)
 @click.option("--faces/--no-faces", "write_faces", default=True, show_default=True)
@@ -48,16 +44,14 @@ def source_media(source, image=None, db_path=None, limit=None):
 def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, write_embedding, write_sidecar, write_geocode, write_faces, verbose):
     if ctx.invoked_subcommand:
         return
-    if not source and not image:
-        raise click.UsageError("Missing option '--source' or '--image'.")
     processed = 0
-    for media in source_media(source, image, db_path, limit):
+    for media in source_media(source, image, limit):
         click.echo(f"🔎 {media.path}")
         if preview:
             subprocess.run(["open", "-a", "Preview", media.path], check=True)
         if verbose:
             click.echo("🧾 metadata")
-        photo_metadata = with_source_gps(metadata.extract_metadata(media.path), media)
+        photo_metadata = metadata.extract_metadata(media.path)
         location = None
         if write_geocode and photo_metadata.gps_lat is not None and photo_metadata.gps_lon is not None:
             if verbose:
@@ -65,7 +59,11 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
             location = geocode.reverse_geocode(photo_metadata.gps_lat, photo_metadata.gps_lon)
         if verbose:
             click.echo("🧠 describing")
-        data = describe.coerce(describe.describe(media.path, backend=backend, model=model, retries=retries))
+        try:
+            data = describe.coerce(describe.describe(media.path, backend=backend, model=model, retries=retries))
+        except RuntimeError as e:
+            click.echo(f"⚠️ skipped {media.path}: {e}")
+            continue
         if verbose and write_embedding:
             click.echo("🧬 embedding")
         vector = embed.embedding_blob(media.path) if write_embedding else None
@@ -74,8 +72,8 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
         if write_faces:
             if verbose:
                 click.echo("🙂 faces")
-            found_faces = faces.detect_faces(media.path)
-            face_ids = faces.store_face_embeddings(media.source, media.source_id, found_faces)
+            found_faces, image_array = faces.detect_faces(media.path)
+            face_ids = faces.store_face_embeddings(media.source, media.source_id, found_faces, image_array)
         if verbose:
             click.echo("💾 saving")
         store.save(media, data, vector, db_path, photo_metadata, location, len(found_faces))
@@ -95,19 +93,34 @@ def label_face(face_id, name):
     click.echo(f"labelled face {face_id} as {name}")
 
 
-@cli.command("open-photos")
-@click.argument("source_id")
-def open_photos(source_id):
-    open_original.open_original("photos", source_id, None)
-    click.echo(f"opened Photos item {source_id}")
+@cli.command("backfill-crops")
+def backfill_crops():
+    created, skipped = faces.backfill_crops()
+    click.echo(f"backfill: {created} crops created, {skipped} skipped (source unavailable)")
 
 
-def with_source_gps(photo_metadata, media):
-    if photo_metadata.gps_lat is not None:
-        return photo_metadata
-    if media.metadata.get("gps_lat") is None or media.metadata.get("gps_lon") is None:
-        return photo_metadata
-    return replace(photo_metadata, gps_lat=media.metadata.get("gps_lat"), gps_lon=media.metadata.get("gps_lon"), gps_altitude_m=media.metadata.get("gps_altitude_m"))
+@cli.command("serve-faces")
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8714, show_default=True)
+def serve_faces(host, port):
+    import uvicorn
+
+    from faceui import app
+
+    uvicorn.run(app, host=host, port=port)
+
+
+@cli.command("train-faces")
+def train_faces():
+    faces.train_faces()
+    click.echo("classifier trained")
+
+
+@cli.command("refresh-sidecars")
+@click.argument("path", type=click.Path(path_type=Path), default=Path("."), required=False)
+def refresh_sidecars(path):
+    updated = sidecars.refresh_sidecars(path)
+    click.echo(f"refreshed {updated} sidecars")
 
 
 if __name__ == "__main__":

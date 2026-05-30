@@ -1,0 +1,3 @@
+image,variant,correct_people_count,correct_rating,correct_time_of_day,correct_lighting,correct_activity,people_count_score,description_score,activity_score,lighting_time_score,rating_score,json_score,notes
+/path/to/image.jpg,A,,,,,,,,,,,,
+/path/to/image.jpg,B,,,,,,,,,,,,

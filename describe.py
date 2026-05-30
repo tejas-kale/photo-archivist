@@ -3,13 +3,16 @@ import json
 import os
 import subprocess
 from dataclasses import dataclass, field
+from io import BytesIO
 from pathlib import Path
 
 import httpx
+from PIL import Image
+from pillow_heif import register_heif_opener
 
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
 MLX_MODEL = os.getenv("MLX_VLM_MODEL", "mlx-community/Qwen3.5-VL-9B-Instruct-4bit")
 DEFAULT_BACKEND = os.getenv("VISION_BACKEND", "ollama")
 DEFAULT_PROMPT = "Return only JSON with keys: rating keep/review/cull, cull_reason string, focus sharp/acceptable/soft, exposure strong/adequate/poor/clipped, depth_of_field shallow/standard/deep, noise clean/some/heavy, lighting string, time_of_day string, dominant_color_palette string, dominant_colors list, people_count integer, keywords list, description_prose two lines, activity two words."
@@ -41,7 +44,13 @@ class VisionResult:
 
 
 def image_data(path):
-    return base64.b64encode(Path(path).read_bytes()).decode()
+    path = Path(path)
+    if path.suffix.lower() in {".heic", ".heif"}:
+        register_heif_opener()
+        buf = BytesIO()
+        Image.open(path).convert("RGB").save(buf, format="JPEG")
+        return base64.b64encode(buf.getvalue()).decode()
+    return base64.b64encode(path.read_bytes()).decode()
 
 
 def describe(path, prompt=DEFAULT_PROMPT, backend=DEFAULT_BACKEND, model=None, retries=2):
