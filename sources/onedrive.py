@@ -1,3 +1,4 @@
+import random
 from pathlib import Path
 
 from sources.base import SourceMedia
@@ -12,9 +13,11 @@ def ensure_local(path):
     return path
 
 
-def media(root):
+def media(root, limit=None):
     root = Path(root).expanduser().resolve()
-    paths = [ensure_local(root)] if root.is_file() else root.rglob("*")
+    paths = [root] if root.is_file() else sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in EXTENSIONS)
+    if limit and limit < len(paths):
+        paths = random.sample(paths, limit)
     for path in paths:
         if path.is_file() and path.suffix.lower() in EXTENSIONS:
             local = ensure_local(path)

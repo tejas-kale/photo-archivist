@@ -1,0 +1,26 @@
+{
+  "instructions": "Copy this structure per image variant after running model_eval.py. Do not open the key file until scoring is complete.",
+  "scores": {
+    "0": "wrong, misleading, or unusable",
+    "1": "acceptable but vague, incomplete, or partly wrong",
+    "2": "good, specific, and accurate"
+  },
+  "rows": [
+    {
+      "image": "/path/to/image.jpg",
+      "variant": "A",
+      "correct_people_count": null,
+      "correct_rating": "keep|review|cull",
+      "correct_time_of_day": "daytime|night|indoor|unknown|your label",
+      "correct_lighting": "natural|indoor|low|harsh|mixed|your label",
+      "correct_activity": "short ground-truth activity",
+      "people_count_score": null,
+      "description_score": null,
+      "activity_score": null,
+      "lighting_time_score": null,
+      "rating_score": null,
+      "json_score": null,
+      "notes": "What was wrong or notably good?"
+    }
+  ]
+}

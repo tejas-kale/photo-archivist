@@ -23,9 +23,7 @@ def source_media(source=None, image=None, limit=None):
     if image:
         path = onedrive.ensure_local(image)
         return [SourceMedia("onedrive", str(path), path, {"path": str(path)})]
-    if source in (None, "onedrive"):
-        return onedrive.media(ONEDRIVE_PATH)
-    return onedrive.media(source)
+    return onedrive.media(ONEDRIVE_PATH if source in (None, "onedrive") else source, limit=limit)
 
 
 @click.group(invoke_without_command=True)
@@ -38,7 +36,7 @@ def source_media(source=None, image=None, limit=None):
 @click.option("--limit", default=None, type=int)
 @click.option("--retries", default=2, show_default=True)
 @click.option("--preview", is_flag=True, help="Open each image in Preview.app")
-@click.option("--embed/--no-embed", "write_embedding", default=True, show_default=True)
+@click.option("--embed/--no-embed", "write_embedding", default=False, show_default=True)
 @click.option("--sidecar/--no-sidecar", "write_sidecar", default=True, show_default=True)
 @click.option("--geocode/--no-geocode", "write_geocode", default=True, show_default=True)
 @click.option("--faces/--no-faces", "write_faces", default=True, show_default=True)
@@ -61,7 +59,11 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
             location = geocode.reverse_geocode(photo_metadata.gps_lat, photo_metadata.gps_lon)
         if verbose:
             click.echo("🧠 describing")
-        data = describe.coerce(describe.describe(media.path, backend=backend, model=model, retries=retries))
+        try:
+            data = describe.coerce(describe.describe(media.path, backend=backend, model=model, retries=retries))
+        except RuntimeError as e:
+            click.echo(f"⚠️ skipped {media.path}: {e}")
+            continue
         if verbose and write_embedding:
             click.echo("🧬 embedding")
         vector = embed.embedding_blob(media.path) if write_embedding else None

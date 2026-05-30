@@ -1,8 +1,9 @@
+import base64
 import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 class StructuredTests(unittest.TestCase):
@@ -52,14 +53,30 @@ class StructuredTests(unittest.TestCase):
         import describe
 
         image = Path(__file__)
-        response = unittest.mock.Mock()
+        response = Mock()
         response.json.return_value = {"response": "{}"}
         with patch.object(describe.httpx, "post", return_value=response) as post:
             describe.describe_ollama(image)
 
         body = post.call_args.kwargs["json"]
         self.assertEqual("json", body["format"])
+        self.assertEqual("gemma4:e2b", body["model"])
         self.assertEqual(768, body["options"]["num_predict"])
+
+    def test_heic_image_data_is_converted_to_jpeg(self):
+        import describe
+
+        image = Mock()
+        converted = Mock()
+        converted.save.side_effect = lambda buf, format: buf.write(b"jpeg")
+        image.convert.return_value = converted
+        with patch.object(describe, "register_heif_opener") as register, patch.object(describe.Image, "open", return_value=image):
+            data = base64.b64decode(describe.image_data(Path("x.heic")))
+
+        register.assert_called_once_with()
+        image.convert.assert_called_once_with("RGB")
+        converted.save.assert_called_once()
+        self.assertEqual(b"jpeg", data)
 
     def test_store_adds_new_columns_to_existing_database(self):
         import sqlite3

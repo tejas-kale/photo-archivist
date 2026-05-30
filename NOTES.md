@@ -4,6 +4,39 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### Model quality evaluation workflow (Session 5, 30 May)
+
+- Added `model_eval.py` to compare Ollama models on a fixed image list without archiving or writing sidecars
+- Added blind exports: `*_blind.csv`/`.jsonl` hide model names behind per-image variants, `*_key.csv` reveals the mapping after scoring, and `*_feedback_template.csv` is for human labels/scores
+- Added static feedback template examples in `eval/model_quality_feedback_template.csv` and `.json`
+- Added `eval/model_quality_images.txt` with the 17 currently available archived sidecar images; the target was 20, but only 17 usable sidecars existed at selection time while the 500-image run was still active
+- Added `eval/model_quality_rubric.md` with blind scoring guidance for people count, description usefulness, activity, lighting/time, rating, and JSON reliability
+
+### HEIC vision conversion (Session 5, 30 May)
+
+- `describe.image_data()` now converts `.heic` and `.heif` files to JPEG bytes before sending them to Ollama
+- Ollama repeatedly failed on raw HEIC payloads with exhausted description retries; JPEG conversion keeps HEIC source support without changing stored originals or sidecars
+
+### Per-image description failure handling (Session 5, 30 May)
+
+- Archive runs now catch exhausted description retries per image, print `⚠️ skipped <path>: <error>`, and continue to the next image
+- The failed image is not saved to `archive.db` and no sidecar is written, because there is no `VisionResult` to persist
+- Other unexpected failures still raise loudly
+
+### Embeddings opt-in (Session 5, 30 May)
+
+- `--embed/--no-embed` now defaults to `--no-embed`
+- The installed tool does not include PyTorch, so the previous default crashed at `CLIPModel.from_pretrained()` after description/geocoding had already run
+- Kept `--embed` for explicit CLIP runs when PyTorch is installed in the CLI environment
+- Updated README troubleshooting for the PyTorch/CLIPModel error
+
+### Random source limits (Session 5, 30 May)
+
+- `--source ... --limit N` now samples `N` images randomly instead of taking the first `N` paths from filesystem traversal
+- Sampling happens in `sources.onedrive.media()` after enumerating candidate image paths but before `ensure_local()`, so skipped OneDrive files are not read/downloaded
+- `--image` remains deterministic and returns only the requested file
+- Updated README to document random limit behaviour
+
 ### Removed Apple Photos; OneDrive-only (Session 4, 30 May)
 
 - Dropped `sources/apple_photos.py` and `osxphotos` dependency
@@ -134,7 +167,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 
 | Decision | Rationale |
 |---|---|
-| Ollama (`gemma4:e4b`) as primary backend | User explicitly rejected OpenRouter; local, no API key, faster iteration |
+| Ollama (`gemma4:e2b`) as primary backend | User explicitly rejected OpenRouter; local, no API key, faster iteration; switched from `gemma4:e4b` for lower load |
 | `mlx-vlm` (Qwen3.5-VL-9B-4bit) as alternative | User wanted a fallback; MLX-native for Apple Silicon |
 | `DEFAULT_BACKEND = "ollama"` | User's explicit choice; mlx-vlm downloads PyTorch model binaries (605MB) |
 
@@ -147,13 +180,13 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Fallback to plain text on parse failure | Ollama occasionally returns non-JSON despite format flag |
 | Retries with progressively stricter prompts | First attempt: standard prompt. Second: "Return valid JSON only." Third: original prompt |
 
-### CLIP embeddings: optional (`--no-embed`)
+### CLIP embeddings: optional (`--embed`)
 
 | Decision | Rationale |
 |---|---|
 | `openai/clip-vit-base-patch32` via transformers | Standard 512-dim embeddings for similarity search |
-| `--embed/--no-embed` flag (default: embed) | Model download is 605MB; first run takes 40s just to load |
-| User added `--no-embed` flag after seeing PyTorch download | PyTorch dependency is heavy and unnecessary for simple archiving |
+| `--embed/--no-embed` flag (default: no-embed) | PyTorch is not installed by default; embeddings remain opt-in for similarity search |
+| User hit missing PyTorch after the previous default tried CLIP | PyTorch dependency is heavy and unnecessary for simple archiving |
 
 ### Metadata extraction
 
@@ -221,7 +254,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 ### Ollama vs OpenRouter vs mlx-vlm
 
 - **OpenRouter** was implemented first (httpx to `/api/v1/chat/completions`). User said "Remove Openrouter configuration and add support for Ollama instead."
-- **Ollama** worked immediately with `gemma4:e4b`. Occasional empty responses fixed with retries. JSON format flag works most of the time but not always.
+- **Ollama** worked immediately with `gemma4:e4b`, then defaulted to `gemma4:e2b` to reduce load. On an M1 MacBook Air, `gemma4:e2b` processes each image noticeably faster and avoids making the machine unusable; output quality still needs comparison against `gemma4:e4b`. Occasional empty responses fixed with retries. JSON format flag works most of the time but not always.
 - **mlx-vlm** downloaded 605MB PyTorch model on first run, took >40s model load time. Kept as alternative backend but not default.
 
 ### brctl download failures
