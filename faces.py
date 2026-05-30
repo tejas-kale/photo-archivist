@@ -87,7 +87,10 @@ def store_face_embeddings(source: str, source_id: str, faces: list[FaceEmbedding
     for face in faces:
         row = con.execute("select id from faces where source = ? and source_id = ? and bbox_x1 = ? and bbox_y1 = ? and bbox_x2 = ? and bbox_y2 = ?", (source, source_id, *face.bbox)).fetchone()
         if row:
-            ids.append(row[0])
+            face_id = row[0]
+            ids.append(face_id)
+            if image_array is not None and not crop_path_for(face_id).exists():
+                save_crop(image_array, face.bbox, face_id)
             continue
         values = (source, source_id, face.embedding, *face.bbox, face.det_score, datetime.now(timezone.utc).isoformat())
         cur = con.execute("insert into faces (source, source_id, embedding, bbox_x1, bbox_y1, bbox_x2, bbox_y2, det_score, indexed_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
@@ -145,6 +148,54 @@ def find_similar_faces(query_path: Path, top_k: int = 10) -> list[dict]:
 
 def result(row, score):
     return {"source": row[0], "source_id": row[1], "cosine_similarity": score, "bbox": [row[3], row[4], row[5], row[6]]}
+
+
+def _classifier_path():
+    return root() / "face_classifier.pkl"
+
+
+def train_faces(threshold: float = 0.7):
+    import pickle
+
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import StandardScaler
+
+    con = db()
+    rows = con.execute(
+        "select faces.embedding, face_labels.name from faces join face_labels on faces.id = face_labels.face_id"
+    ).fetchall()
+    if len(rows) < 2:
+        raise ValueError("Need at least 2 labelled faces to train a classifier")
+    names = [r[1] for r in rows]
+    if len(set(names)) < 2:
+        raise ValueError("Need at least 2 distinct labels to train a classifier")
+    X = np.vstack([normalized(r[0]) for r in rows])
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    model = LogisticRegression(C=1.0, max_iter=1000)
+    model.fit(X_scaled, names)
+    with open(_classifier_path(), "wb") as f:
+        pickle.dump({"model": model, "scaler": scaler, "labels": model.classes_.tolist(), "threshold": threshold, "normalised": True}, f)
+
+
+def predict_name(embedding_bytes: bytes) -> tuple[str | None, float]:
+    import pickle
+
+    path = _classifier_path()
+    if not path.exists():
+        return None, 0.0
+    with open(path, "rb") as f:
+        data = pickle.load(f)
+    model = data["model"]
+    scaler = data["scaler"]
+    threshold = data["threshold"]
+    vec = normalized(embedding_bytes).reshape(1, -1)
+    vec_scaled = scaler.transform(vec)
+    probs = model.predict_proba(vec_scaled)[0]
+    idx = int(np.argmax(probs))
+    if probs[idx] < threshold:
+        return None, float(probs[idx])
+    return str(model.classes_[idx]), float(probs[idx])
 
 
 def backfill_crops() -> tuple[int, int]:

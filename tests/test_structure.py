@@ -47,6 +47,16 @@ class StructureTests(unittest.TestCase):
         label.assert_called_once_with(42, "Tejas")
         self.assertIn("labelled face 42 as Tejas", result.output)
 
+    def test_train_faces_cli(self):
+        import archive
+
+        with patch.object(archive.faces, "train_faces") as train:
+            result = CliRunner().invoke(archive.cli, ["train-faces"])
+
+        self.assertEqual(0, result.exit_code)
+        train.assert_called_once_with()
+        self.assertIn("classifier trained", result.output)
+
     def test_source_media_shape(self):
         from sources.base import SourceMedia
 
@@ -90,6 +100,14 @@ class StructureTests(unittest.TestCase):
 
         with patch.object(archive.onedrive, "media", return_value=[]) as media:
             list(archive.source_media("onedrive"))
+
+        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures")
+
+    def test_source_media_defaults_to_onedrive(self):
+        import archive
+
+        with patch.object(archive.onedrive, "media", return_value=[]) as media:
+            list(archive.source_media())
 
         media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures")
 

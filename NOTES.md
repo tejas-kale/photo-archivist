@@ -29,6 +29,14 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - `GET /faces/<id>.jpg` — serve crop JPEGs; `GET /names` — JSON list of existing names
 - Added `fastapi`, `uvicorn`, `jinja2`, `python-multipart` to pyproject.toml
 
+### Local face classifier (Session 4, 30 May)
+
+- Added `train_faces()` and `predict_name()` in `faces.py`
+- `train-faces` CLI subcommand trains a Logistic Regression classifier on L2-normalised labelled face embeddings
+- Classifier persists to `~/.photo-archivist/face_classifier.pkl` with label list, threshold, and normalisation flag
+- `predict_name()` returns `(None, confidence)` below threshold or when no model exists
+- Uses `scikit-learn`; reviewed Phase 0/1 behaviour: `--source` now defaults to OneDrive, and re-running face storage recreates a missing crop for an existing face row
+
 ### Bootstrapping (Session 1, 28 May)
 
 - Wired OpenRouter client in `describe.py` using httpx, then **replaced with Ollama** at user's request
@@ -95,6 +103,16 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Crops at `~/.photo-archivist/faces/<face_id>.jpg` | No schema change needed; filename derived from primary key |
 | Raw embedding stored in DB; `normalized()` helper for L2 | Keeps round-trip precision; `inferred_name()` already normalises via cosine, and the upcoming classifier will use `normalized()` consistently |
 | No `crop_status` column | Unavailable-source info is logged during backfill; a column adds schema migration cost for minimal value |
+
+### Local face classifier
+
+| Decision | Rationale |
+|---|---|
+| Logistic Regression as first persisted model | Small, deterministic, probability output is enough for a local labelling loop |
+| Train on L2-normalised embeddings | Keeps classifier input consistent with cosine matching and future prototype comparisons |
+| Default abstain threshold `0.7` | Rejects weak binary decisions (~0.5) while accepting clear synthetic held-out matches; tune after real labels accumulate |
+| Persist pickle with model, labels, threshold, and normalisation flag | Single local artefact is easy to retrain and inspect; metadata avoids guessing preprocessing later |
+| Raise on fewer than two labelled faces/classes | A classifier trained on one class cannot make useful name decisions |
 
 ### Vision backend: Ollama, not OpenRouter
 

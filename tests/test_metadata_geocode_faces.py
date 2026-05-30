@@ -157,6 +157,19 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         result = faces.normalized(vec.tobytes())
         np.testing.assert_allclose([0.6, 0.8], result)
 
+    def test_store_face_embeddings_recreates_missing_crop_for_existing_row(self):
+        import faces
+
+        img = np.zeros((80, 100, 3), dtype="uint8")
+        face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (10, 10, 50, 50), 0.95)
+        with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
+            face_id = faces.store_face_embeddings("onedrive", "uuid", [face], img)[0]
+            crop = faces.crop_path_for(face_id)
+            crop.unlink()
+            second = faces.store_face_embeddings("onedrive", "uuid", [face], img)
+            self.assertEqual([face_id], second)
+            self.assertTrue(crop.exists())
+
     def test_backfill_crops_creates_missing_and_skips_unavailable(self):
         import faces
         import logging
@@ -180,6 +193,55 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
             self.assertEqual(1, skipped)
             self.assertTrue(crop_avail.exists())
             self.assertIn("source unavailable", log.output[0])
+    def test_train_predict_round_trip(self):
+        import faces
+
+        e1 = np.array([1.0, 0.0], dtype="float32")
+        e2 = np.array([0.0, 1.0], dtype="float32")
+        e3 = np.array([0.7, 0.7], dtype="float32")
+        f1 = faces.FaceEmbedding(e1.tobytes(), (1, 2, 3, 4), 0.95)
+        f2 = faces.FaceEmbedding(e2.tobytes(), (5, 6, 7, 8), 0.95)
+        f3 = faces.FaceEmbedding(e3.tobytes(), (9, 10, 11, 12), 0.95)
+        with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
+            id1 = faces.store_face_embeddings("onedrive", "a", [f1])[0]
+            id2 = faces.store_face_embeddings("onedrive", "b", [f2])[0]
+            id3 = faces.store_face_embeddings("onedrive", "c", [f3])[0]
+            faces.label_face(id1, "Alice")
+            faces.label_face(id2, "Bob")
+            faces.label_face(id3, "Alice")
+            faces.train_faces()
+
+            name, conf = faces.predict_name(e1.tobytes())
+            self.assertEqual("Alice", name)
+            self.assertGreater(conf, 0.5)
+
+    def test_predict_name_returns_none_below_threshold(self):
+        import faces
+
+        e1 = np.array([1.0, 0.0], dtype="float32")
+        e2 = np.array([0.0, 1.0], dtype="float32")
+        f1 = faces.FaceEmbedding(e1.tobytes(), (1, 2, 3, 4), 0.95)
+        f2 = faces.FaceEmbedding(e2.tobytes(), (5, 6, 7, 8), 0.95)
+        with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
+            id1 = faces.store_face_embeddings("onedrive", "a", [f1])[0]
+            id2 = faces.store_face_embeddings("onedrive", "b", [f2])[0]
+            faces.label_face(id1, "Alice")
+            faces.label_face(id2, "Bob")
+            faces.train_faces()
+
+            unknown = np.array([-1.0, -1.0], dtype="float32")
+            name, conf = faces.predict_name(unknown.tobytes())
+            self.assertIsNone(name)
+
+    def test_train_faces_raises_when_too_few_labels(self):
+        import faces
+
+        e1 = np.array([1.0, 0.0], dtype="float32")
+        f1 = faces.FaceEmbedding(e1.tobytes(), (1, 2, 3, 4), 0.95)
+        with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
+            faces.store_face_embeddings("onedrive", "a", [f1])[0]
+            with self.assertRaises(ValueError):
+                faces.train_faces()
 
 
 if __name__ == "__main__":

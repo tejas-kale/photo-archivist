@@ -23,16 +23,14 @@ def source_media(source=None, image=None, limit=None):
     if image:
         path = onedrive.ensure_local(image)
         return [SourceMedia("onedrive", str(path), path, {"path": str(path)})]
-    if source == "onedrive":
+    if source in (None, "onedrive"):
         return onedrive.media(ONEDRIVE_PATH)
-    if source:
-        return onedrive.media(source)
-    raise click.UsageError("Missing option '--source' or '--image'.")
+    return onedrive.media(source)
 
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-@click.option("--source", required=False, help="onedrive or a file/directory path")
+@click.option("--source", default="onedrive", show_default=True, help="onedrive or a file/directory path")
 @click.option("--image", type=click.Path(path_type=Path), help="Archive one image path")
 @click.option("--db", "db_path", default="archive.db", show_default=True)
 @click.option("--backend", default=describe.DEFAULT_BACKEND, show_default=True)
@@ -108,6 +106,12 @@ def serve_faces(host, port):
     from faceui import app
 
     uvicorn.run(app, host=host, port=port)
+
+
+@cli.command("train-faces")
+def train_faces():
+    faces.train_faces()
+    click.echo("classifier trained")
 
 
 if __name__ == "__main__":
