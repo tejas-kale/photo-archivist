@@ -16,7 +16,7 @@ from sources import apple_photos, onedrive
 from sources.base import SourceMedia
 
 
-ONEDRIVE_PATH = Path.home() / "Library" / "CloudStorage" / "OneDrive"
+ONEDRIVE_PATH = Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures"
 
 
 def source_media(source, image=None, db_path=None, limit=None):

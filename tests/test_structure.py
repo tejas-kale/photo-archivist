@@ -65,6 +65,27 @@ class StructureTests(unittest.TestCase):
         self.assertEqual("onedrive", found[0].source)
         self.assertEqual(image.resolve(), found[0].path)
 
+    def test_filesystem_source_finds_nested_images(self):
+        from sources.onedrive import media
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            image = root / "a" / "b" / "c.heic"
+            image.parent.mkdir(parents=True)
+            image.write_bytes(b"heic")
+
+            found = list(media(root))
+
+        self.assertEqual([image.resolve()], [item.path for item in found])
+
+    def test_archive_cli_uses_onedrive_personal_pictures(self):
+        import archive
+
+        with patch.object(archive.onedrive, "media", return_value=[]) as media:
+            list(archive.source_media("onedrive"))
+
+        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures")
+
     def test_archive_cli_accepts_specific_image_path(self):
         import archive
 
