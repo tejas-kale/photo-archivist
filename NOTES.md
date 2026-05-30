@@ -37,6 +37,13 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - `predict_name()` returns `(None, confidence)` below threshold or when no model exists
 - Uses `scikit-learn`; reviewed Phase 0/1 behaviour: `--source` now defaults to OneDrive, and re-running face storage recreates a missing crop for an existing face row
 
+### Predicted names in sidecars (Session 4, 30 May)
+
+- `name_for_face()` now returns manual labels first, then classifier predictions, then `None` if no model or below threshold
+- `sidecar.py` writes `person_name`, `name_source`, and `confidence` per named face
+- Added `refresh-sidecars [path]` CLI command to rewrite existing `.description.md` files with current labels/predictions
+- Retained legacy `inferred_name()` as unused compatibility code for now; classifier is the active fallback
+
 ### Bootstrapping (Session 1, 28 May)
 
 - Wired OpenRouter client in `describe.py` using httpx, then **replaced with Ollama** at user's request
@@ -113,6 +120,15 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Default abstain threshold `0.7` | Rejects weak binary decisions (~0.5) while accepting clear synthetic held-out matches; tune after real labels accumulate |
 | Persist pickle with model, labels, threshold, and normalisation flag | Single local artefact is easy to retrain and inspect; metadata avoids guessing preprocessing later |
 | Raise on fewer than two labelled faces/classes | A classifier trained on one class cannot make useful name decisions |
+
+### Predicted names in sidecars
+
+| Decision | Rationale |
+|---|---|
+| Manual labels override model predictions | `face_labels` is ground truth; classifier predictions are only a fallback |
+| Sidecars include `name_source` and `confidence` | Lets stale or weak predictions be audited without opening the DB |
+| Add `refresh-sidecars [path]` now | Retraining should update existing `.description.md` files, not just newly archived images |
+| Leave missing model as `None` | Sidecar generation should not crash just because the classifier has not been trained yet |
 
 ### Vision backend: Ollama, not OpenRouter
 

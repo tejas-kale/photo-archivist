@@ -111,12 +111,23 @@ def normalized(embedding_bytes: bytes) -> np.ndarray:
     return vec / np.linalg.norm(vec)
 
 
-def name_for_face(face_id: int, threshold=0.7) -> str | None:
+def name_for_face(face_id: int) -> str | None:
+    details = name_details_for_face(face_id)
+    return details["name"] if details else None
+
+
+def name_details_for_face(face_id: int) -> dict | None:
     con = db()
     row = con.execute("select name from face_labels where face_id = ?", (face_id,)).fetchone()
     if row:
-        return row[0]
-    return inferred_name(con, face_id, threshold)
+        return {"name": row[0], "source": "labelled", "confidence": 1.0}
+    face = con.execute("select embedding from faces where id = ?", (face_id,)).fetchone()
+    if not face:
+        return None
+    name, confidence = predict_name(face[0])
+    if not name:
+        return None
+    return {"name": name, "source": "predicted", "confidence": confidence}
 
 
 def inferred_name(con, face_id, threshold):

@@ -24,7 +24,7 @@ class FramedexSidecarTests(unittest.TestCase):
             location = LocationResult("London, UK", "London", "United Kingdom", "gb")
             vision = VisionResult(description_prose="Two lines\nof prose", people_count=2, keywords=["family"], rating="keep", lighting="daylight", time_of_day="day", dominant_colors=["blue"], dominant_color_palette="cool blue")
             face = FaceEmbedding(b"1234", (1, 2, 3, 4), 0.91)
-            with unittest.mock.patch.object(sidecar.faces_db, "name_for_face", return_value="Tejas"):
+            with unittest.mock.patch.object(sidecar.faces_db, "name_details_for_face", return_value={"name": "Tejas", "source": "predicted", "confidence": 0.88}):
                 path = sidecar.write(media, vision, meta, location, [face], [42], datetime(2026, 5, 29, tzinfo=timezone.utc))
             text = path.read_text()
 
@@ -35,6 +35,8 @@ class FramedexSidecarTests(unittest.TestCase):
         self.assertEqual("high", frontmatter["faces"][0]["detection_quality"])
         self.assertEqual(42, frontmatter["faces"][0]["face_embedding_id"])
         self.assertEqual("Tejas", frontmatter["faces"][0]["person_name"])
+        self.assertEqual("predicted", frontmatter["faces"][0]["name_source"])
+        self.assertEqual(0.88, frontmatter["faces"][0]["confidence"])
         self.assertEqual("onedrive", frontmatter["source"]["type"])
         self.assertIn("## Description\nTwo lines\nof prose", text)
 
@@ -48,6 +50,21 @@ class FramedexSidecarTests(unittest.TestCase):
             path = sidecar.path_for(media)
 
         self.assertEqual(image.with_name(f"{image.stem}.description.md"), path)
+
+    def test_refresh_sidecars_updates_face_names(self):
+        import sidecar
+
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "IMG_1234.description.md"
+            path.write_text("---\nfaces:\n- face_embedding_id: 42\n  bbox: [1, 2, 3, 4]\n---\n\n## Description\ncaption\n")
+            with unittest.mock.patch.object(sidecar.faces_db, "name_details_for_face", return_value={"name": "Ishwa", "source": "labelled", "confidence": 1.0}):
+                updated = sidecar.refresh_sidecars(Path(d))
+            frontmatter = yaml.safe_load(path.read_text().split("---")[1])
+
+        self.assertEqual(1, updated)
+        self.assertEqual("Ishwa", frontmatter["faces"][0]["person_name"])
+        self.assertEqual("labelled", frontmatter["faces"][0]["name_source"])
+        self.assertEqual(1.0, frontmatter["faces"][0]["confidence"])
 
 
 if __name__ == "__main__":

@@ -114,5 +114,12 @@ def train_faces():
     click.echo("classifier trained")
 
 
+@cli.command("refresh-sidecars")
+@click.argument("path", type=click.Path(path_type=Path), default=Path("."), required=False)
+def refresh_sidecars(path):
+    updated = sidecars.refresh_sidecars(path)
+    click.echo(f"refreshed {updated} sidecars")
+
+
 if __name__ == "__main__":
     cli()

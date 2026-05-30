@@ -57,6 +57,16 @@ class StructureTests(unittest.TestCase):
         train.assert_called_once_with()
         self.assertIn("classifier trained", result.output)
 
+    def test_refresh_sidecars_cli(self):
+        import archive
+
+        with tempfile.TemporaryDirectory() as d, patch.object(archive.sidecars, "refresh_sidecars", return_value=3) as refresh:
+            result = CliRunner().invoke(archive.cli, ["refresh-sidecars", d])
+
+        self.assertEqual(0, result.exit_code)
+        refresh.assert_called_once_with(Path(d))
+        self.assertIn("refreshed 3 sidecars", result.output)
+
     def test_source_media_shape(self):
         from sources.base import SourceMedia
 
