@@ -40,11 +40,21 @@ class FaceUITests(unittest.TestCase):
         self.assertIn(f'name="face_{self.id2}"', body)
         self.assertNotIn(f'name="face_{self.id1}"', body)
 
-    def test_grid_paginates(self):
-        self._faces.label_face(self.id2, "Ishwa")
-        response = self.client.get("/?page=1&size=5")
+    def test_grid_samples_unlabelled_faces(self):
+        response = self.client.get("/?size=1")
+        self.assertEqual(200, response.status_code)
+        self.assertIn(f'name="face_{self.id2}"', response.text)
+
+    def test_grid_excludes_missing_crops(self):
+        self._faces.crop_path_for(self.id2).unlink()
+        response = self.client.get("/")
         self.assertEqual(200, response.status_code)
         self.assertIn("No unlabelled faces", response.text)
+
+    def test_save_all_redirects_to_random_next_set(self):
+        response = self.client.post("/label", data={f"face_{self.id2}": "Ishwa"}, follow_redirects=False)
+        self.assertEqual(303, response.status_code)
+        self.assertEqual("/", response.headers["location"])
 
     def test_label_endpoint_batch_persists(self):
         response = self.client.post("/label", data={

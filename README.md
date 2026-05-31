@@ -259,6 +259,8 @@ photo-archivist backfill-crops
 
 Backfill only works when `faces.db.source_id` points to a file that still exists. Older rows from removed Photos/iCloud flows may not have usable paths.
 
+The UI shows a random set of unlabelled faces each time the page loads. After **Save All**, labelled faces are persisted and the browser redirects to a fresh random set. Faces without crop files are hidden, so broken `?` images do not keep resurfacing.
+
 ### Why are face crops low resolution?
 
 The UI shows detected face crops, not full photos. Crops are saved from the face bounding box with 15% padding. If the face is small in the source image, the crop will be small too.

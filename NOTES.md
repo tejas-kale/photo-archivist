@@ -4,6 +4,12 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### Random face labelling UI (Session 6, 30 May)
+
+- Face UI now samples a random set of unlabelled faces on each page load instead of walking sequential IDs
+- `POST /label` redirects back to `/` after Save All so the next view is another random set
+- Faces without crop files are excluded from the grid to avoid broken `?` images resurfacing
+
 ### Overnight resource controls (Session 6, 30 May)
 
 - `--embed` now uses `embed.embedding_blob_subprocess()` by default, invoking `python -m embed <image>` per image so PyTorch/CLIP memory exits with the worker process
