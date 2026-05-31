@@ -8,7 +8,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 
 - `train-faces` now accepts `--min-labels N` and trains only on people with at least `N` labelled faces
 - The classifier pickle stores `min_labels` alongside labels, scaler, threshold, and normalisation metadata
-- The UI does not yet prefill predictions; trained predictions currently affect `name_for_face()` and refreshed sidecars
+- Classifier predictions are now UI suggestions only: the face UI prefills predicted names with confidence, but sidecars only write manually labelled names
 
 ### Random face labelling UI (Session 6, 30 May)
 

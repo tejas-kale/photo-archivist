@@ -74,7 +74,7 @@ def face_row(face, ids, index):
     face_id = ids[index] if index < len(ids) else None
     row = {"bbox": list(face.bbox), "detection_quality": quality(face.det_score), "face_embedding_id": face_id, "cluster_id": None}
     details = faces_db.name_details_for_face(face_id) if face_id else None
-    if details:
+    if details and details.get("source") == "labelled":
         apply_name(row, details)
     return row
 
@@ -100,7 +100,7 @@ def refresh_sidecars(path: Path) -> int:
             if not face_id:
                 continue
             details = faces_db.name_details_for_face(face_id)
-            if not details:
+            if not details or details.get("source") != "labelled":
                 continue
             apply_name(face, details)
             changed = True

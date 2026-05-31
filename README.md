@@ -251,7 +251,7 @@ Train only on people with enough examples:
 photo-archivist train-faces --min-labels 30
 ```
 
-After training, sidecars can include predicted names (`name_source: predicted`) when confidence exceeds the classifier threshold. The current UI still shows blank inputs; it does not yet prefill or sort by predicted names.
+After training, the face UI prefills classifier predictions with a confidence tooltip. Predictions are not written to sidecars. Only labels you save in the UI or via `label-face` are treated as approved and written to sidecars.
 
 Refresh existing sidecars after training or relabelling:
 

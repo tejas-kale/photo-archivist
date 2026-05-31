@@ -40,6 +40,15 @@ class FaceUITests(unittest.TestCase):
         self.assertIn(f'name="face_{self.id2}"', body)
         self.assertNotIn(f'name="face_{self.id1}"', body)
 
+    def test_grid_prefills_predicted_names(self):
+        with patch.object(self._faces, "name_details_for_face", return_value={"name": "Ishwa", "source": "predicted", "confidence": 0.82}):
+            response = self.client.get("/")
+
+        self.assertEqual(200, response.status_code)
+        self.assertIn(f'name="face_{self.id2}"', response.text)
+        self.assertIn('value="Ishwa"', response.text)
+        self.assertIn('title="predicted 0.82"', response.text)
+
     def test_grid_samples_unlabelled_faces(self):
         response = self.client.get("/?size=1")
         self.assertEqual(200, response.status_code)
