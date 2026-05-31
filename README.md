@@ -245,6 +245,14 @@ Train the local classifier after labelling at least two faces across at least tw
 photo-archivist train-faces
 ```
 
+Train only on people with enough examples:
+
+```bash
+photo-archivist train-faces --min-labels 30
+```
+
+After training, sidecars can include predicted names (`name_source: predicted`) when confidence exceeds the classifier threshold. The current UI still shows blank inputs; it does not yet prefill or sort by predicted names.
+
 Refresh existing sidecars after training or relabelling:
 
 ```bash

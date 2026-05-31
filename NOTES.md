@@ -4,6 +4,12 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### Face classifier minimum labels (Session 6, 30 May)
+
+- `train-faces` now accepts `--min-labels N` and trains only on people with at least `N` labelled faces
+- The classifier pickle stores `min_labels` alongside labels, scaler, threshold, and normalisation metadata
+- The UI does not yet prefill predictions; trained predictions currently affect `name_for_face()` and refreshed sidecars
+
 ### Random face labelling UI (Session 6, 30 May)
 
 - Face UI now samples a random set of unlabelled faces on each page load instead of walking sequential IDs

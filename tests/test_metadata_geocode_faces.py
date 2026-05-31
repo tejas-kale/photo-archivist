@@ -253,6 +253,30 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 faces.train_faces()
 
+    def test_train_faces_filters_by_min_labels(self):
+        import pickle
+        import faces
+
+        e1 = np.array([1.0, 0.0], dtype="float32")
+        e2 = np.array([0.0, 1.0], dtype="float32")
+        e3 = np.array([0.7, 0.7], dtype="float32")
+        with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
+            ids = [
+                faces.store_face_embeddings("onedrive", "a1", [faces.FaceEmbedding(e1.tobytes(), (1, 2, 3, 4), 0.95)])[0],
+                faces.store_face_embeddings("onedrive", "a2", [faces.FaceEmbedding(e1.tobytes(), (2, 2, 3, 4), 0.95)])[0],
+                faces.store_face_embeddings("onedrive", "b1", [faces.FaceEmbedding(e2.tobytes(), (3, 2, 3, 4), 0.95)])[0],
+                faces.store_face_embeddings("onedrive", "b2", [faces.FaceEmbedding(e2.tobytes(), (4, 2, 3, 4), 0.95)])[0],
+                faces.store_face_embeddings("onedrive", "c1", [faces.FaceEmbedding(e3.tobytes(), (5, 2, 3, 4), 0.95)])[0],
+            ]
+            for face_id, name in zip(ids, ["Alice", "Alice", "Bob", "Bob", "Carol"]):
+                faces.label_face(face_id, name)
+            faces.train_faces(min_labels=2)
+            with open(faces._classifier_path(), "rb") as f:
+                data = pickle.load(f)
+
+        self.assertEqual(["Alice", "Bob"], data["labels"])
+        self.assertEqual(2, data["min_labels"])
+
 
 if __name__ == "__main__":
     unittest.main()

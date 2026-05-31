@@ -52,10 +52,10 @@ class StructureTests(unittest.TestCase):
         import archive
 
         with patch.object(archive.faces, "train_faces") as train:
-            result = CliRunner().invoke(archive.cli, ["train-faces"])
+            result = CliRunner().invoke(archive.cli, ["train-faces", "--min-labels", "30"])
 
         self.assertEqual(0, result.exit_code)
-        train.assert_called_once_with()
+        train.assert_called_once_with(min_labels=30)
         self.assertIn("classifier trained", result.output)
 
     def test_refresh_sidecars_cli(self):

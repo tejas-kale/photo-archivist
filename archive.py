@@ -137,8 +137,9 @@ def serve_faces(host, port):
 
 
 @cli.command("train-faces")
-def train_faces():
-    faces.train_faces()
+@click.option("--min-labels", default=1, show_default=True, type=int)
+def train_faces(min_labels):
+    faces.train_faces(min_labels=min_labels)
     click.echo("classifier trained")
 
 

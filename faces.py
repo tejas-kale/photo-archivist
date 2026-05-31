@@ -165,7 +165,7 @@ def _classifier_path():
     return root() / "face_classifier.pkl"
 
 
-def train_faces(threshold: float = 0.7):
+def train_faces(threshold: float = 0.7, min_labels: int = 1):
     import pickle
 
     from sklearn.linear_model import LogisticRegression
@@ -175,6 +175,8 @@ def train_faces(threshold: float = 0.7):
     rows = con.execute(
         "select faces.embedding, face_labels.name from faces join face_labels on faces.id = face_labels.face_id"
     ).fetchall()
+    counts = {name: sum(1 for row in rows if row[1] == name) for name in {row[1] for row in rows}}
+    rows = [row for row in rows if counts[row[1]] >= min_labels]
     if len(rows) < 2:
         raise ValueError("Need at least 2 labelled faces to train a classifier")
     names = [r[1] for r in rows]
@@ -186,7 +188,7 @@ def train_faces(threshold: float = 0.7):
     model = LogisticRegression(C=1.0, max_iter=1000)
     model.fit(X_scaled, names)
     with open(_classifier_path(), "wb") as f:
-        pickle.dump({"model": model, "scaler": scaler, "labels": model.classes_.tolist(), "threshold": threshold, "normalised": True}, f)
+        pickle.dump({"model": model, "scaler": scaler, "labels": model.classes_.tolist(), "threshold": threshold, "normalised": True, "min_labels": min_labels}, f)
 
 
 def predict_name(embedding_bytes: bytes) -> tuple[str | None, float]:
