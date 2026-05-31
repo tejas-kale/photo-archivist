@@ -7,6 +7,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 ### Face classifier minimum labels (Session 6, 30 May)
 
 - `train-faces` now accepts `--min-labels N` and trains only on people with at least `N` labelled faces
+- Default classifier prediction threshold is now 0.95, so UI suggestions appear only for high-confidence predictions
 - The classifier pickle stores `min_labels` alongside labels, scaler, threshold, and normalisation metadata
 - Classifier predictions are now UI suggestions only: the face UI prefills predicted names with confidence, but sidecars only write manually labelled names
 

@@ -251,7 +251,7 @@ Train only on people with enough examples:
 photo-archivist train-faces --min-labels 30
 ```
 
-After training, the face UI prefills classifier predictions with a confidence tooltip. Predictions are not written to sidecars. Only labels you save in the UI or via `label-face` are treated as approved and written to sidecars.
+After training, the face UI prefills classifier predictions with a confidence tooltip. Predictions require at least 95% classifier confidence by default. Predictions are not written to sidecars. Only labels you save in the UI or via `label-face` are treated as approved and written to sidecars.
 
 Refresh existing sidecars after training or relabelling:
 

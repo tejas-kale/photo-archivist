@@ -165,7 +165,7 @@ def _classifier_path():
     return root() / "face_classifier.pkl"
 
 
-def train_faces(threshold: float = 0.7, min_labels: int = 1):
+def train_faces(threshold: float = 0.95, min_labels: int = 1):
     import pickle
 
     from sklearn.linear_model import LogisticRegression
