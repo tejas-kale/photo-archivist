@@ -4,6 +4,14 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### Overnight resource controls (Session 6, 30 May)
+
+- `--embed` now uses `embed.embedding_blob_subprocess()` by default, invoking `python -m embed <image>` per image so PyTorch/CLIP memory exits with the worker process
+- CLIP embedding now registers the HEIF opener for `.heic`/`.heif`, and archive runs skip failed per-image embeddings instead of aborting the run
+- Added `--no-embed-subprocess` for faster in-process embeddings when memory pressure is acceptable
+- Added `ollama_ctl.py` plus `--manage-ollama`, `--restart-ollama-every N`, and `--cooldown SECONDS` so long runs can restart Ollama every 20-25 images
+- `--restart-ollama-every` requires `--manage-ollama` to avoid killing a manually managed Ollama server
+
 ### Model quality evaluation workflow (Session 5, 30 May)
 
 - Added `model_eval.py` to compare Ollama models on a fixed image list without archiving or writing sidecars
@@ -14,8 +22,8 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 
 ### HEIC vision conversion (Session 5, 30 May)
 
-- `describe.image_data()` now converts `.heic` and `.heif` files to JPEG bytes before sending them to Ollama
-- Ollama repeatedly failed on raw HEIC payloads with exhausted description retries; JPEG conversion keeps HEIC source support without changing stored originals or sidecars
+- `describe.image_data()` now converts image payloads to RGB JPEG and resizes them within 1280x1280 before sending them to Ollama
+- Ollama repeatedly failed on raw HEIC payloads and later consumed too much memory on full-resolution images; bounded JPEG conversion keeps source support without changing stored originals or sidecars
 
 ### Per-image description failure handling (Session 5, 30 May)
 

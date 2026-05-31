@@ -31,5 +31,5 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["archive", "describe", "embed", "store", "sidecar", "open_original", "metadata", "geocode", "faces", "faceui"]
+py-modules = ["archive", "describe", "embed", "store", "sidecar", "open_original", "metadata", "geocode", "faces", "faceui", "ollama_ctl", "model_eval"]
 packages = ["sources"]

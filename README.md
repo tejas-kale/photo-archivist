@@ -117,7 +117,8 @@ photo-archivist --image ~/Pictures/example.jpg --no-faces --no-geocode
 
 Useful flags:
 
-- `--embed`: enables CLIP embeddings; requires PyTorch in the CLI environment
+- `--embed`: enables CLIP whole-image embeddings. By default each embedding runs in a subprocess so PyTorch memory is released after each image.
+- `--no-embed-subprocess`: keeps CLIP in the main process; faster, but unsafe for long runs on low-memory machines.
 - `--no-faces`: skips InsightFace detection
 - `--no-geocode`: skips reverse geocoding
 - `--no-sidecar`: skips Markdown sidecar writing
@@ -134,6 +135,21 @@ Stop Ollama only if needed:
 ```bash
 pkill -f 'ollama serve'
 ```
+
+For overnight runs, let the CLI own Ollama and restart it periodically:
+
+```bash
+photo-archivist \
+  --source onedrive \
+  --limit 500 \
+  --verbose \
+  --embed \
+  --manage-ollama \
+  --restart-ollama-every 25 \
+  --cooldown 5
+```
+
+`--restart-ollama-every` requires `--manage-ollama`, because otherwise the CLI would kill a server it did not start.
 
 ## Vision backends
 
@@ -337,11 +353,11 @@ photo-archivist --source ~/Pictures/export
 
 ### `CLIPModel requires the PyTorch library`
 
-Embeddings were requested but PyTorch is not installed in the CLI environment. Omit `--embed`, or install PyTorch into the tool environment before using embeddings.
+Embeddings were requested but PyTorch is not installed in the CLI environment. Omit `--embed`, or install PyTorch into the tool environment before using embeddings. `--embed` runs CLIP in a subprocess by default to reduce long-run swap growth, but the subprocess still needs PyTorch installed.
 
 ### HEIC files fail to open
 
-HEIC/HEIF files are converted to JPEG before vision requests. Make sure dependencies are installed from the project and use the CLI environment created by `uv`:
+Images are converted to bounded JPEG payloads before vision requests; HEIC/HEIF files are supported for both vision and CLIP embeddings. If embedding a specific image fails, the image is still archived with a missing embedding. Make sure dependencies are installed from the project and use the CLI environment created by `uv`:
 
 ```bash
 uv tool install --reinstall .
