@@ -7,6 +7,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 ### Overnight resource controls (Session 6, 30 May)
 
 - `--embed` now uses `embed.embedding_blob_subprocess()` by default, invoking `python -m embed <image>` per image so PyTorch/CLIP memory exits with the worker process
+- CLIP embedding now registers the HEIF opener for `.heic`/`.heif`, and archive runs skip failed per-image embeddings instead of aborting the run
 - Added `--no-embed-subprocess` for faster in-process embeddings when memory pressure is acceptable
 - Added `ollama_ctl.py` plus `--manage-ollama`, `--restart-ollama-every N`, and `--cooldown SECONDS` so long runs can restart Ollama every 20-25 images
 - `--restart-ollama-every` requires `--manage-ollama` to avoid killing a manually managed Ollama server

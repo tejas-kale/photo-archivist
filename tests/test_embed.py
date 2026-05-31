@@ -35,6 +35,20 @@ class EmbedTests(unittest.TestCase):
 
         np.testing.assert_allclose(vector, np.array([0.6, 0.8], dtype="float32"))
 
+    def test_embedding_registers_heif_opener(self):
+        import embed
+
+        image = Mock()
+        image.convert.return_value = image
+        model = Mock()
+        processor = Mock(return_value={"pixel_values": "pixels"})
+        model.get_image_features.return_value = Output([[3, 4]])
+
+        with patch.object(embed, "model", return_value=(model, processor)), patch.object(embed, "register_heif_opener") as register, patch.object(embed.Image, "open", return_value=image):
+            embed.embedding("x.heic")
+
+        register.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()

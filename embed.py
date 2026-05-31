@@ -6,6 +6,7 @@ from functools import cache
 
 import numpy as np
 from PIL import Image
+from pillow_heif import register_heif_opener
 
 
 @cache
@@ -17,6 +18,8 @@ def model():
 
 
 def embedding(path):
+    if str(path).lower().endswith((".heic", ".heif")):
+        register_heif_opener()
     m, p = model()
     inputs = p(images=Image.open(path).convert("RGB"), return_tensors="pt")
     features = m.get_image_features(**inputs)

@@ -1,4 +1,5 @@
 import importlib.metadata
+import subprocess
 import tempfile
 import unittest
 from httpx import HTTPError
@@ -226,6 +227,19 @@ class StructureTests(unittest.TestCase):
         self.assertIn("✅ archived", result.output)
         save.assert_called_once()
         self.assertIs(save.call_args.args[0], second)
+
+    def test_archive_cli_continues_after_embedding_failure(self):
+        import archive
+        from sources.base import SourceMedia
+
+        item = SourceMedia("onedrive", "id", Path("x.heic"), {})
+        data = archive.describe.VisionResult(description_prose="caption")
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob_subprocess", side_effect=subprocess.CalledProcessError(1, "embed")), patch.object(archive.faces, "detect_faces", return_value=([], None)), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
+            result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--embed"])
+
+        self.assertEqual(0, result.exit_code)
+        self.assertIn("⚠️ embedding skipped x.heic", result.output)
+        save.assert_called_once_with(item, data, None, "archive.db", ANY, None, 0)
 
     def test_archive_cli_can_skip_geocode_and_faces(self):
         import archive

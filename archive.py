@@ -83,7 +83,11 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
             continue
         if verbose and write_embedding:
             click.echo("🧬 embedding")
-        vector = embedding_blob(media.path, embed_subprocess) if write_embedding else None
+        try:
+            vector = embedding_blob(media.path, embed_subprocess) if write_embedding else None
+        except subprocess.CalledProcessError as e:
+            click.echo(f"⚠️ embedding skipped {media.path}: {e}")
+            vector = None
         found_faces = []
         face_ids = []
         if write_faces:
