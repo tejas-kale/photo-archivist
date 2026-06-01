@@ -17,8 +17,13 @@ def rows(page, size):
     offset = (page - 1) * size
     con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row
+    cols = {row[1] for row in con.execute("pragma table_info(media)")}
+    rating = "rating" if "rating" in cols else "picture_quality" if "picture_quality" in cols else "null"
+    people = "people_count" if "people_count" in cols else "number_people" if "number_people" in cols else "null"
+    description = "description" if "description" in cols else "''"
+    indexed = "indexed_at" if "indexed_at" in cols else "''"
     return con.execute(
-        "select id, original_path, description, rating, people_count, indexed_at from media where original_path is not null order by indexed_at desc limit ? offset ?",
+        f"select id, original_path, {description} as description, {rating} as rating, {people} as people_count, {indexed} as indexed_at from media where original_path is not null order by indexed_at desc limit ? offset ?",
         (size, offset),
     ).fetchall()
 

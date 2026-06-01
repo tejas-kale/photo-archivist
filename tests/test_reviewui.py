@@ -59,6 +59,22 @@ class ReviewUITests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual(3, response.text.count('<img src="/images/'))
 
+    def test_grid_handles_legacy_schema_without_rating(self):
+        import reviewui
+
+        db_path = self.root / "legacy.db"
+        con = sqlite3.connect(db_path)
+        con.execute("create table media (id text primary key, original_path text, description text, number_people int, indexed_at text)")
+        con.execute("insert into media values (?, ?, ?, ?, ?)", ("legacy", str(self.image1), "legacy description", 2, "2026-05-31T00:00:00+00:00"))
+        con.commit()
+        reviewui.DB_PATH = db_path
+
+        response = self.client.get("/")
+
+        self.assertEqual(200, response.status_code)
+        self.assertIn("legacy description", response.text)
+        self.assertIn("People", response.text)
+
 
 if __name__ == "__main__":
     unittest.main()
