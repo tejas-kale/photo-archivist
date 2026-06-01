@@ -245,6 +245,14 @@ Train the local classifier after labelling at least two faces across at least tw
 photo-archivist train-faces
 ```
 
+Train only on people with enough examples:
+
+```bash
+photo-archivist train-faces --min-labels 30
+```
+
+After training, the face UI prefills classifier predictions with a confidence tooltip. Predictions require at least 95% classifier confidence by default. Predictions are not written to sidecars. Only labels you save in the UI or via `label-face` are treated as approved and written to sidecars.
+
 Refresh existing sidecars after training or relabelling:
 
 ```bash
@@ -285,7 +293,7 @@ It includes:
 - description and keywords
 - face bounding boxes and labels or predictions
 
-Refresh sidecars after changing labels:
+Refresh sidecars after changing labels or after OneDrive timed out while writing a sidecar:
 
 ```bash
 photo-archivist refresh-sidecars /path/to/photos

@@ -1,4 +1,5 @@
 import random
+from html import escape
 from pathlib import Path
 
 from fastapi import FastAPI, Query, Request
@@ -22,7 +23,10 @@ def grid(size: int = Query(20, ge=1, le=100)):
     names = sorted({row[0] for row in con.execute("select distinct name from face_labels")})
     items = ""
     for fid in page_faces:
-        items += f'<div class="face-cell"><img src="/faces/{fid}.jpg" loading="lazy"><input name="face_{fid}" list="names" placeholder="name"></div>\n'
+        details = face_db.name_details_for_face(fid)
+        value = escape(details["name"]) if details and details.get("source") == "predicted" else ""
+        title = f' title="predicted {details["confidence"]:.2f}"' if details and details.get("source") == "predicted" else ""
+        items += f'<div class="face-cell"><img src="/faces/{fid}.jpg" loading="lazy"><input name="face_{fid}" list="names" placeholder="name" value="{value}"{title}></div>\n'
     if not items:
         items = '<p class="empty">No unlabelled faces.</p>'
     return TEMPLATE.replace("{{items}}", items).replace("{{names}}", "\n".join(f'<option value="{n}">' for n in names))

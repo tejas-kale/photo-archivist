@@ -52,10 +52,10 @@ class StructureTests(unittest.TestCase):
         import archive
 
         with patch.object(archive.faces, "train_faces") as train:
-            result = CliRunner().invoke(archive.cli, ["train-faces"])
+            result = CliRunner().invoke(archive.cli, ["train-faces", "--min-labels", "30"])
 
         self.assertEqual(0, result.exit_code)
-        train.assert_called_once_with()
+        train.assert_called_once_with(min_labels=30)
         self.assertIn("classifier trained", result.output)
 
     def test_refresh_sidecars_cli(self):
@@ -240,6 +240,20 @@ class StructureTests(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
         self.assertIn("⚠️ embedding skipped x.heic", result.output)
         save.assert_called_once_with(item, data, None, "archive.db", ANY, None, 0)
+
+    def test_archive_cli_continues_after_sidecar_failure(self):
+        import archive
+        from sources.base import SourceMedia
+
+        item = SourceMedia("onedrive", "id", Path("x.jpg"), {})
+        data = archive.describe.VisionResult(description_prose="caption")
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.faces, "detect_faces", return_value=([], None)), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write", side_effect=TimeoutError("onedrive timeout")):
+            result = CliRunner().invoke(archive.cli, ["--source", "onedrive"])
+
+        self.assertEqual(0, result.exit_code)
+        self.assertIn("⚠️ sidecar skipped x.jpg: onedrive timeout", result.output)
+        self.assertIn("✅ archived", result.output)
+        save.assert_called_once()
 
     def test_archive_cli_can_skip_geocode_and_faces(self):
         import archive

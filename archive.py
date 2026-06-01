@@ -99,7 +99,10 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
             click.echo("💾 saving")
         store.save(media, data, vector, db_path, photo_metadata, location, len(found_faces))
         if write_sidecar:
-            click.echo(f"📝 {sidecars.write(media, data, photo_metadata, location, found_faces, face_ids)}")
+            try:
+                click.echo(f"📝 {sidecars.write(media, data, photo_metadata, location, found_faces, face_ids)}")
+            except OSError as e:
+                click.echo(f"⚠️ sidecar skipped {media.path}: {e}")
         click.echo("✅ archived")
         processed += 1
         attempted += 1
@@ -137,8 +140,9 @@ def serve_faces(host, port):
 
 
 @cli.command("train-faces")
-def train_faces():
-    faces.train_faces()
+@click.option("--min-labels", default=1, show_default=True, type=int)
+def train_faces(min_labels):
+    faces.train_faces(min_labels=min_labels)
     click.echo("classifier trained")
 
 
