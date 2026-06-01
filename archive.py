@@ -99,7 +99,10 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
             click.echo("💾 saving")
         store.save(media, data, vector, db_path, photo_metadata, location, len(found_faces))
         if write_sidecar:
-            click.echo(f"📝 {sidecars.write(media, data, photo_metadata, location, found_faces, face_ids)}")
+            try:
+                click.echo(f"📝 {sidecars.write(media, data, photo_metadata, location, found_faces, face_ids)}")
+            except OSError as e:
+                click.echo(f"⚠️ sidecar skipped {media.path}: {e}")
         click.echo("✅ archived")
         processed += 1
         attempted += 1

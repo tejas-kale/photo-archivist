@@ -293,7 +293,7 @@ It includes:
 - description and keywords
 - face bounding boxes and labels or predictions
 
-Refresh sidecars after changing labels:
+Refresh sidecars after changing labels or after OneDrive timed out while writing a sidecar:
 
 ```bash
 photo-archivist refresh-sidecars /path/to/photos
