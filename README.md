@@ -265,6 +265,12 @@ Refresh existing sidecars after training or relabelling:
 photo-archivist refresh-sidecars ~/Library/CloudStorage/OneDrive-Personal/tejas/Pictures
 ```
 
+Backfill missing CLIP embeddings after installing/running with PyTorch available:
+
+```bash
+uv run photo-archivist backfill-embeddings --limit 100
+```
+
 Backfill missing face crops:
 
 ```bash

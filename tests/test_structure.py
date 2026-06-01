@@ -78,6 +78,16 @@ class StructureTests(unittest.TestCase):
         refresh.assert_called_once_with(Path(d))
         self.assertIn("refreshed 3 sidecars", result.output)
 
+    def test_backfill_embeddings_cli(self):
+        import archive
+
+        with patch.object(archive, "backfill_embeddings", return_value=(2, 1)) as backfill:
+            result = CliRunner().invoke(archive.cli, ["backfill-embeddings", "--limit", "5", "--db", "x.db"])
+
+        self.assertEqual(0, result.exit_code)
+        backfill.assert_called_once_with("x.db", 5)
+        self.assertIn("embeddings: 2 created, 1 skipped", result.output)
+
     def test_source_media_shape(self):
         from sources.base import SourceMedia
 
@@ -244,7 +254,7 @@ class StructureTests(unittest.TestCase):
 
         item = SourceMedia("onedrive", "id", Path("x.heic"), {})
         data = archive.describe.VisionResult(description_prose="caption")
-        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob_subprocess", side_effect=subprocess.CalledProcessError(1, "embed")), patch.object(archive.faces, "detect_faces", return_value=([], None)), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.embed, "embedding_blob_subprocess", side_effect=RuntimeError("missing torch")), patch.object(archive.faces, "detect_faces", return_value=([], None)), patch.object(archive.faces, "store_face_embeddings", return_value=[]), patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
             result = CliRunner().invoke(archive.cli, ["--source", "onedrive", "--embed"])
 
         self.assertEqual(0, result.exit_code)

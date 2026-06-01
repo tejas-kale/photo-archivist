@@ -31,6 +31,28 @@ def embedding_blob(path, subprocess_mode):
     return embed.embedding_blob_subprocess(path) if subprocess_mode else embed.embedding_blob(path)
 
 
+def backfill_embeddings(db_path, limit):
+    import sqlite3
+
+    con = sqlite3.connect(db_path)
+    cols = {row[1] for row in con.execute("pragma table_info(media)")}
+    order = "indexed_at desc" if "indexed_at" in cols else "id"
+    rows = con.execute(f"select id, original_path from media where embedding is null and original_path is not null order by {order} limit ?", (limit or -1,)).fetchall()
+    created = 0
+    skipped = 0
+    for image_id, path in rows:
+        try:
+            vector = embed.embedding_blob_subprocess(Path(path))
+        except RuntimeError as e:
+            click.echo(f"⚠️ embedding skipped {path}: {e}")
+            skipped += 1
+            continue
+        con.execute("update media set embedding = ? where id = ?", (vector, image_id))
+        con.commit()
+        created += 1
+    return created, skipped
+
+
 @click.group(invoke_without_command=True)
 @click.pass_context
 @click.option("--source", default="onedrive", show_default=True, help="onedrive or a file/directory path")
@@ -85,7 +107,7 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
             click.echo("🧬 embedding")
         try:
             vector = embedding_blob(media.path, embed_subprocess) if write_embedding else None
-        except subprocess.CalledProcessError as e:
+        except RuntimeError as e:
             click.echo(f"⚠️ embedding skipped {media.path}: {e}")
             vector = None
         found_faces = []
@@ -129,6 +151,14 @@ def label_face(face_id, name):
 def backfill_crops():
     created, skipped = faces.backfill_crops()
     click.echo(f"backfill: {created} crops created, {skipped} skipped (source unavailable)")
+
+
+@cli.command("backfill-embeddings")
+@click.option("--db", "db_path", default="archive.db", show_default=True)
+@click.option("--limit", type=int, default=None)
+def backfill_embeddings_cmd(db_path, limit):
+    created, skipped = backfill_embeddings(db_path, limit)
+    click.echo(f"embeddings: {created} created, {skipped} skipped")
 
 
 @cli.command("serve-faces")

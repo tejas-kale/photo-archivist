@@ -36,6 +36,12 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - Added `ollama_ctl.py` plus `--manage-ollama`, `--restart-ollama-every N`, and `--cooldown SECONDS` so long runs can restart Ollama every 20-25 images
 - `--restart-ollama-every` requires `--manage-ollama` to avoid killing a manually managed Ollama server
 
+### Embedding backfill (Session 7, 1 June)
+
+- Added `backfill-embeddings --db archive.db --limit N` to fill `media.embedding` for archived rows where embedding is null
+- Embedding subprocess failures now include stderr/stdout so missing PyTorch is visible instead of only `CalledProcessError`
+- Use `uv run photo-archivist backfill-embeddings` from the repo when the installed uv tool lacks PyTorch
+
 ### Photo review UI (Session 7, 31 May)
 
 - Removed the model evaluation script, fixtures, and tests
