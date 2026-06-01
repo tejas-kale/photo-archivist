@@ -40,7 +40,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 
 - Removed the model evaluation script, fixtures, and tests
 - Added `reviewui.py` and `serve-review` for a view-only browser over `archive.db`
-- Review UI shows up to three archived images per page, newest first, with original image and database description side-by-side
+- Review UI shows up to three archived images per page, newest first, with original image and verbatim `.description.md` sidecar side-by-side in a scrollable panel
 - Image routes call OneDrive `ensure_local()` before returning `FileResponse`, so cloud-backed originals are hydrated before display
 
 ### HEIC vision conversion (Session 5, 30 May)

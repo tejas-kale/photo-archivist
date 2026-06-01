@@ -34,15 +34,19 @@ def row_by_id(image_id):
     return con.execute("select original_path from media where id = ?", (image_id,)).fetchone()
 
 
+def sidecar_text(path, fallback):
+    path = Path(path)
+    sidecar = path.with_name(f"{path.stem}.description.md")
+    return sidecar.read_text() if sidecar.exists() else fallback or ""
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(page: int = Query(1, ge=1), size: int = Query(3, ge=1)):
     items = ""
     for row in rows(page, size):
         image_id = escape(str(row["id"]))
         path = escape(str(row["original_path"]))
-        description = escape(row["description"] or "")
-        rating = escape(str(row["rating"] or ""))
-        people = "" if row["people_count"] is None else row["people_count"]
+        description = escape(sidecar_text(row["original_path"], row["description"]))
         indexed = escape(str(row["indexed_at"] or ""))
         items += f"""
 <section class="item">
@@ -50,8 +54,8 @@ def index(page: int = Query(1, ge=1), size: int = Query(3, ge=1)):
   <div class="details">
     <h2>{Path(row['original_path']).name}</h2>
     <p class="path">{path}</p>
-    <dl><dt>Rating</dt><dd>{rating}</dd><dt>People</dt><dd>{people}</dd><dt>Indexed</dt><dd>{indexed}</dd></dl>
-    <pre>{description}</pre>
+    <p class="indexed">Indexed {indexed}</p>
+    <pre class="sidecar">{description}</pre>
   </div>
 </section>
 """
@@ -68,9 +72,8 @@ a {{ color: #8af; }}
 .item {{ display: grid; grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr); gap: 16px; padding: 16px; border-bottom: 1px solid #333; }}
 .image img {{ width: 100%; max-height: 86vh; object-fit: contain; background: #000; }}
 .path {{ color: #aaa; overflow-wrap: anywhere; }}
-dl {{ display: grid; grid-template-columns: 100px 1fr; gap: 4px 12px; }}
-dt {{ color: #aaa; }}
-pre {{ white-space: pre-wrap; line-height: 1.45; font-size: 16px; }}
+.indexed {{ color: #aaa; }}
+.sidecar {{ white-space: pre-wrap; line-height: 1.45; font-size: 14px; max-height: 75vh; overflow: auto; padding: 12px; background: #181818; border: 1px solid #333; border-radius: 6px; }}
 .empty {{ padding: 40px; color: #aaa; }}
 @media (max-width: 800px) {{ .item {{ grid-template-columns: 1fr; }} }}
 </style></head><body><nav>{prev_link}<span>Page {page}</span>{next_link}</nav>{items}</body></html>"""

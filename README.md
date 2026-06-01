@@ -199,7 +199,7 @@ Then open:
 http://127.0.0.1:8716/
 ```
 
-The review UI shows up to three archived images per page, ordered newest first, with the database description beside each image. Image routes call OneDrive hydration before serving the original file, so the browser receives the available high-quality original rather than a thumbnail.
+The review UI shows up to three archived images per page, ordered newest first, with the `.description.md` sidecar shown verbatim in a scrollable panel beside each image. If the sidecar is missing, it falls back to the database description. Image routes call OneDrive hydration before serving the original file, so the browser receives the available high-quality original rather than a thumbnail.
 
 Use another database or port:
 

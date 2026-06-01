@@ -18,6 +18,7 @@ class ReviewUITests(unittest.TestCase):
         self.image4 = self.root / "d.jpg"
         for image in [self.image1, self.image2, self.image3, self.image4]:
             image.write_bytes(b"jpg")
+            image.with_name(f"{image.stem}.description.md").write_text(f"---\nfile: {image.name}\n---\n\n## Description\nsidecar {image.stem}")
         con = sqlite3.connect(self.db_path)
         con.execute("create table media (id text primary key, original_path text, description text, rating text, people_count int, indexed_at text)")
         for i, image in enumerate([self.image1, self.image2, self.image3, self.image4], 1):
@@ -30,18 +31,19 @@ class ReviewUITests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_grid_shows_three_images_and_descriptions(self):
+    def test_grid_shows_three_images_and_sidecars_verbatim(self):
         response = self.client.get("/")
         self.assertEqual(200, response.status_code)
-        self.assertIn("description 4", response.text)
-        self.assertIn("description 2", response.text)
-        self.assertNotIn("description 1", response.text)
+        self.assertIn("---\nfile: d.jpg", response.text)
+        self.assertIn("sidecar b", response.text)
+        self.assertNotIn("sidecar a", response.text)
+        self.assertIn('class="sidecar"', response.text)
         self.assertEqual(3, response.text.count('<img src="/images/'))
 
     def test_page_two_shows_remaining_image(self):
         response = self.client.get("/?page=2")
         self.assertEqual(200, response.status_code)
-        self.assertIn("description 1", response.text)
+        self.assertIn("sidecar a", response.text)
         self.assertEqual(1, response.text.count('<img src="/images/'))
 
     def test_image_route_ensures_local_and_returns_file(self):
@@ -65,7 +67,9 @@ class ReviewUITests(unittest.TestCase):
         db_path = self.root / "legacy.db"
         con = sqlite3.connect(db_path)
         con.execute("create table media (id text primary key, original_path text, description text, number_people int, indexed_at text)")
-        con.execute("insert into media values (?, ?, ?, ?, ?)", ("legacy", str(self.image1), "legacy description", 2, "2026-05-31T00:00:00+00:00"))
+        image = self.root / "legacy.jpg"
+        image.write_bytes(b"jpg")
+        con.execute("insert into media values (?, ?, ?, ?, ?)", ("legacy", str(image), "legacy description", 2, "2026-05-31T00:00:00+00:00"))
         con.commit()
         reviewui.DB_PATH = db_path
 
@@ -73,7 +77,6 @@ class ReviewUITests(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertIn("legacy description", response.text)
-        self.assertIn("People", response.text)
 
 
 if __name__ == "__main__":
