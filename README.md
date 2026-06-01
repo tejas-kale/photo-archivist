@@ -173,16 +173,27 @@ export OLLAMA_MODEL=gemma4:e2b
 export VISION_BACKEND=ollama
 ```
 
-MLX-VLM is available as an alternative backend:
+MLX-VLM is available as an alternative backend. It runs natively on Apple
+Silicon (unified memory, Metal + Neural Engine) and defaults to the
+`unsloth/gemma-4-E2B-it-UD-MLX-4bit` model — an Unsloth Dynamic 4-bit quant
+(~1B on disk) that fits comfortably in 8GB while keeping the precision-sensitive
+layers intact:
 
 ```bash
 photo-archivist --image ~/Pictures/example.jpg --backend mlx-vlm
 ```
 
-Optional model override:
+Pick a different MLX model with the same `--model` flag (e.g. the larger
+`unsloth/gemma-4-E4B-it-UD-MLX-4bit`, ~2B on disk):
 
 ```bash
-export MLX_VLM_MODEL=mlx-community/Qwen3.5-VL-9B-Instruct-4bit
+photo-archivist --image ~/Pictures/example.jpg --backend mlx-vlm --model unsloth/gemma-4-E4B-it-UD-MLX-4bit
+```
+
+Or set the default model via the environment:
+
+```bash
+export MLX_VLM_MODEL=unsloth/gemma-4-E2B-it-UD-MLX-4bit
 ```
 
 ## Photo review UI

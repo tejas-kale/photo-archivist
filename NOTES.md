@@ -205,8 +205,11 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Decision | Rationale |
 |---|---|
 | Ollama (`gemma4:e2b`) as primary backend | User explicitly rejected OpenRouter; local, no API key, faster iteration; switched from `gemma4:e4b` for lower load |
-| `mlx-vlm` (Qwen3.5-VL-9B-4bit) as alternative | User wanted a fallback; MLX-native for Apple Silicon |
+| `mlx-vlm` as alternative | User wanted a fallback; MLX-native for Apple Silicon (unified memory, Metal + Neural Engine — no CPU/GPU split like Ollama) |
 | `DEFAULT_BACKEND = "ollama"` | User's explicit choice; mlx-vlm downloads PyTorch model binaries (605MB) |
+| MLX default model → `unsloth/gemma-4-E2B-it-UD-MLX-4bit` (was Qwen3.5-VL-9B-4bit) | 9B never fit the user's 8GB Mac, where even Ollama's 2B is sluggish; the UD 4-bit gemma-4-E2B is ~1B on disk, leaving OS/app headroom. `--model` / `MLX_VLM_MODEL` still override (e.g. `unsloth/gemma-4-E4B-it-UD-MLX-4bit`, ~2B) |
+| Chose the **UD** (Unsloth Dynamic) quant, not a flat MLX 4-bit | Flat MLX 4-bit Gemma 4 quants (mlx-community/unsloth non-UD) emit garbage because they quantize the Per-Layer Embedding (PLE) layers; UD keeps precision-sensitive layers higher-precision, so quality-per-byte beats a flat Q4 |
+| Reuse existing `mlx_vlm.generate` CLI (`--model/--image/--prompt/--max-tokens`) | Verified against mlx-vlm 0.5.0 gemma4 docs; the UD-MLX-4bit repo loads through the same path, so no `describe_mlx` API change was needed — only the default model |
 
 ### Structured vision output
 
