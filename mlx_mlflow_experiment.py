@@ -49,7 +49,7 @@ def log_image(row, model, root):
     return seconds
 
 
-def run(db_path="archive.db", limit=50, model=describe.MLX_MODEL, tracking_uri="mlruns", experiment="mlx-description-comparison"):
+def run(db_path="archive.db", limit=50, model=describe.MLX_MODEL, tracking_uri="sqlite:///mlflow.db", experiment="mlx-description-comparison"):
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment)
     rows = processed_images(db_path, limit)
@@ -76,7 +76,7 @@ def main():
     p.add_argument("--db", default="archive.db")
     p.add_argument("--limit", type=int, default=50)
     p.add_argument("--model", default=describe.MLX_MODEL)
-    p.add_argument("--tracking-uri", default="mlruns")
+    p.add_argument("--tracking-uri", default="sqlite:///mlflow.db")
     p.add_argument("--experiment", default="mlx-description-comparison")
     args = p.parse_args()
     ok, failed = run(args.db, args.limit, args.model, args.tracking_uri, args.experiment)

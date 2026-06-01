@@ -38,7 +38,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 
 ### MLflow MLX comparison (Session 7, 1 June)
 
-- Added `mlx_mlflow_experiment.py` and `mlflow` dependency for local experiment tracking
+- Added `mlx_mlflow_experiment.py` and `mlflow` dependency for local experiment tracking backed by local SQLite (`sqlite:///mlflow.db`)
 - The script samples already processed `archive.db` rows, runs MLX-VLM with `unsloth/gemma-4-E2B-it-UD-MLX-4bit`, and logs original image, existing sidecar/DB description, new MLX description, and metadata to MLflow
 - Existing `.description.md` files are not overwritten; MLX outputs are logged as MLflow artefacts only
 

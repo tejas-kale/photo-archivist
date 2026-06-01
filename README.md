@@ -214,7 +214,7 @@ For each sampled image, MLflow logs:
 Start the MLflow UI:
 
 ```bash
-uv run mlflow server --backend-store-uri mlruns --default-artifact-root mlruns --host 127.0.0.1 --port 5000
+uv run mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000
 ```
 
 Then open `http://127.0.0.1:5000/`.
