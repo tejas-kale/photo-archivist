@@ -63,6 +63,29 @@ class StructuredTests(unittest.TestCase):
         self.assertEqual("gemma4:e2b", body["model"])
         self.assertEqual(768, body["options"]["num_predict"])
 
+    def test_mlx_backend_defaults_to_unsloth_ud_4bit_model(self):
+        import describe
+
+        self.assertEqual("unsloth/gemma-4-E2B-it-UD-MLX-4bit", describe.MLX_MODEL)
+        with patch.object(describe, "describe_mlx", return_value="{}") as mlx:
+            describe.describe_once(Path("x.jpg"), backend="mlx-vlm")
+
+        mlx.assert_called_once()
+        self.assertEqual("unsloth/gemma-4-E2B-it-UD-MLX-4bit", mlx.call_args.args[2])
+
+    def test_describe_mlx_builds_generate_command(self):
+        import describe
+
+        completed = Mock(stdout="{}\n")
+        with patch.object(describe.subprocess, "run", return_value=completed) as run:
+            describe.describe_mlx(Path("x.jpg"), prompt="caption", model="unsloth/gemma-4-E2B-it-UD-MLX-4bit")
+
+        self.assertEqual(
+            ["python", "-m", "mlx_vlm.generate", "--model", "unsloth/gemma-4-E2B-it-UD-MLX-4bit", "--image", "x.jpg", "--prompt", "caption", "--max-tokens", "160"],
+            run.call_args.args[0],
+        )
+        self.assertEqual("{}", run.return_value.stdout.strip())
+
     def test_image_data_is_converted_resized_jpeg(self):
         import describe
 

@@ -13,7 +13,7 @@ from pillow_heif import register_heif_opener
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
-MLX_MODEL = os.getenv("MLX_VLM_MODEL", "mlx-community/Qwen3.5-VL-9B-Instruct-4bit")
+MLX_MODEL = os.getenv("MLX_VLM_MODEL", "unsloth/gemma-4-E2B-it-UD-MLX-4bit")
 DEFAULT_BACKEND = os.getenv("VISION_BACKEND", "ollama")
 DEFAULT_PROMPT = "Return only JSON with keys: rating keep/review/cull, cull_reason string, focus sharp/acceptable/soft, exposure strong/adequate/poor/clipped, depth_of_field shallow/standard/deep, noise clean/some/heavy, lighting string, time_of_day string, dominant_color_palette string, dominant_colors list, people_count integer, keywords list, description_prose two lines, activity two words."
 
