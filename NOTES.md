@@ -36,13 +36,12 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - Added `ollama_ctl.py` plus `--manage-ollama`, `--restart-ollama-every N`, and `--cooldown SECONDS` so long runs can restart Ollama every 20-25 images
 - `--restart-ollama-every` requires `--manage-ollama` to avoid killing a manually managed Ollama server
 
-### Model quality evaluation workflow (Session 5, 30 May)
+### Photo review UI (Session 7, 31 May)
 
-- Added `model_eval.py` to compare Ollama models on a fixed image list without archiving or writing sidecars
-- Added blind exports: `*_blind.csv`/`.jsonl` hide model names behind per-image variants, `*_key.csv` reveals the mapping after scoring, and `*_feedback_template.csv` is for human labels/scores
-- Added static feedback template examples in `eval/model_quality_feedback_template.csv` and `.json`
-- Added `eval/model_quality_images.txt` with the 17 currently available archived sidecar images; the target was 20, but only 17 usable sidecars existed at selection time while the 500-image run was still active
-- Added `eval/model_quality_rubric.md` with blind scoring guidance for people count, description usefulness, activity, lighting/time, rating, and JSON reliability
+- Removed the model evaluation script, fixtures, and tests
+- Added `reviewui.py` and `serve-review` for a view-only browser over `archive.db`
+- Review UI shows up to three archived images per page, newest first, with original image and database description side-by-side
+- Image routes call OneDrive `ensure_local()` before returning `FileResponse`, so cloud-backed originals are hydrated before display
 
 ### HEIC vision conversion (Session 5, 30 May)
 

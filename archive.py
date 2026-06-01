@@ -142,6 +142,19 @@ def serve_faces(host, port):
     uvicorn.run(app, host=host, port=port)
 
 
+@cli.command("serve-review")
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8716, show_default=True)
+@click.option("--db", "db_path", default="archive.db", show_default=True)
+def serve_review(host, port, db_path):
+    import uvicorn
+
+    import reviewui
+
+    reviewui.DB_PATH = Path(db_path)
+    uvicorn.run(reviewui.app, host=host, port=port)
+
+
 @cli.command("train-faces")
 @click.option("--min-labels", default=1, show_default=True, type=int)
 def train_faces(min_labels):

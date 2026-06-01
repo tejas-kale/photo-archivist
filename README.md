@@ -185,21 +185,27 @@ Optional model override:
 export MLX_VLM_MODEL=mlx-community/Qwen3.5-VL-9B-Instruct-4bit
 ```
 
-Compare Ollama model quality on a fixed image set without archiving anything:
+## Photo review UI
+
+Open a view-only image and description browser from `archive.db`:
 
 ```bash
-uv run python model_eval.py --images eval/model_quality_images.txt --models gemma4:e2b gemma4:e4b --out eval/model_quality_results
+photo-archivist serve-review
 ```
 
-This writes:
+Then open:
 
-- `eval/model_quality_results_blind.csv` — review this; model names are hidden behind variants `A`, `B`, ...
-- `eval/model_quality_results_blind.jsonl`
-- `eval/model_quality_results_feedback_template.csv` — fill your labels and scores here
-- `eval/model_quality_results_key.csv` — open only after scoring to reveal model names
-- `eval/model_quality_results_raw.csv` and `.jsonl` — unblinded raw data for analysis
+```text
+http://127.0.0.1:8716/
+```
 
-Use `eval/model_quality_rubric.md` for scoring guidance. Static template examples are in `eval/model_quality_feedback_template.csv` and `.json`.
+The review UI shows up to three archived images per page, ordered newest first, with the database description beside each image. Image routes call OneDrive hydration before serving the original file, so the browser receives the available high-quality original rather than a thumbnail.
+
+Use another database or port:
+
+```bash
+photo-archivist serve-review --db ~/photo-archive.db --port 8720
+```
 
 ## Face labelling
 

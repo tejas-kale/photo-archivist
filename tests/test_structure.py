@@ -38,6 +38,16 @@ class StructureTests(unittest.TestCase):
         self.assertEqual("0.0.0.0", run.call_args.kwargs["host"])
         self.assertEqual(9000, run.call_args.kwargs["port"])
 
+    def test_serve_review_cli(self):
+        import archive
+
+        with patch("uvicorn.run") as run:
+            result = CliRunner().invoke(archive.cli, ["serve-review", "--host", "0.0.0.0", "--port", "9001", "--db", "x.db"])
+        self.assertEqual(0, result.exit_code)
+        run.assert_called_once()
+        self.assertEqual("0.0.0.0", run.call_args.kwargs["host"])
+        self.assertEqual(9001, run.call_args.kwargs["port"])
+
     def test_label_face_cli(self):
         import archive
 
