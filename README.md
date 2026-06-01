@@ -196,6 +196,29 @@ Or set the default model via the environment:
 export MLX_VLM_MODEL=unsloth/gemma-4-E2B-it-UD-MLX-4bit
 ```
 
+## MLflow MLX comparison
+
+Run a local MLflow experiment that re-describes already archived images with the MLX Gemma 4 UD 4-bit model without overwriting existing sidecars:
+
+```bash
+uv run python -m mlx_mlflow_experiment --limit 50
+```
+
+For each sampled image, MLflow logs:
+
+- the original image
+- the existing `.description.md` content, or DB description if the sidecar is missing
+- the new MLX-generated `mlx.description.md`
+- metadata including timing and structured MLX output
+
+Start the MLflow UI:
+
+```bash
+uv run mlflow server --backend-store-uri mlruns --default-artifact-root mlruns --host 127.0.0.1 --port 5000
+```
+
+Then open `http://127.0.0.1:5000/`.
+
 ## Photo review UI
 
 Open a view-only image and description browser from `archive.db`:

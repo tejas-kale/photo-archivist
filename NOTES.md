@@ -36,6 +36,12 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - Added `ollama_ctl.py` plus `--manage-ollama`, `--restart-ollama-every N`, and `--cooldown SECONDS` so long runs can restart Ollama every 20-25 images
 - `--restart-ollama-every` requires `--manage-ollama` to avoid killing a manually managed Ollama server
 
+### MLflow MLX comparison (Session 7, 1 June)
+
+- Added `mlx_mlflow_experiment.py` and `mlflow` dependency for local experiment tracking
+- The script samples already processed `archive.db` rows, runs MLX-VLM with `unsloth/gemma-4-E2B-it-UD-MLX-4bit`, and logs original image, existing sidecar/DB description, new MLX description, and metadata to MLflow
+- Existing `.description.md` files are not overwritten; MLX outputs are logged as MLflow artefacts only
+
 ### Embedding backfill (Session 7, 1 June)
 
 - Added `backfill-embeddings --db archive.db --limit N` to fill `media.embedding` for archived rows where embedding is null
