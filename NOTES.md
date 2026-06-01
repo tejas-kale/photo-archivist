@@ -4,6 +4,11 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### Per-image face detection failure handling (Session 6, 30 May)
+
+- Archive runs now catch `OSError` from face detection, print `⚠️ faces skipped <path>: <error>`, save the image with `face_count = 0`, and continue
+- This covers corrupt/unsupported/transient OneDrive HEIC decode failures in Pillow/InsightFace
+
 ### Sidecar write failure handling (Session 6, 30 May)
 
 - Archive runs now catch `OSError` from sidecar writes, print `⚠️ sidecar skipped <path>: <error>`, and continue

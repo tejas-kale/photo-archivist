@@ -255,6 +255,20 @@ class StructureTests(unittest.TestCase):
         self.assertIn("✅ archived", result.output)
         save.assert_called_once()
 
+    def test_archive_cli_continues_after_face_detection_failure(self):
+        import archive
+        from sources.base import SourceMedia
+
+        item = SourceMedia("onedrive", "id", Path("x.heic"), {})
+        data = archive.describe.VisionResult(description_prose="caption")
+        with patch.object(archive, "source_media", return_value=[item]), patch.object(archive.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(archive.describe, "describe", return_value=data), patch.object(archive.faces, "detect_faces", side_effect=OSError("bad heic")), patch.object(archive.faces, "store_face_embeddings") as store_faces, patch.object(archive.store, "save") as save, patch.object(archive.sidecars, "write"):
+            result = CliRunner().invoke(archive.cli, ["--source", "onedrive"])
+
+        self.assertEqual(0, result.exit_code)
+        self.assertIn("⚠️ faces skipped x.heic: bad heic", result.output)
+        store_faces.assert_not_called()
+        save.assert_called_once_with(item, data, None, "archive.db", ANY, None, 0)
+
     def test_archive_cli_can_skip_geocode_and_faces(self):
         import archive
         from sources.base import SourceMedia

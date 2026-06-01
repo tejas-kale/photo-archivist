@@ -367,7 +367,7 @@ Embeddings were requested but PyTorch is not installed in the CLI environment. O
 
 ### HEIC files fail to open
 
-Images are converted to bounded JPEG payloads before vision requests; HEIC/HEIF files are supported for both vision and CLIP embeddings. If embedding a specific image fails, the image is still archived with a missing embedding. Make sure dependencies are installed from the project and use the CLI environment created by `uv`:
+Images are converted to bounded JPEG payloads before vision requests; HEIC/HEIF files are supported for both vision and CLIP embeddings. If embedding or face detection fails for a specific image, the image is still archived with the missing field. Make sure dependencies are installed from the project and use the CLI environment created by `uv`:
 
 ```bash
 uv tool install --reinstall .

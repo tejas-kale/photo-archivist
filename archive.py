@@ -93,8 +93,11 @@ def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, wr
         if write_faces:
             if verbose:
                 click.echo("🙂 faces")
-            found_faces, image_array = faces.detect_faces(media.path)
-            face_ids = faces.store_face_embeddings(media.source, media.source_id, found_faces, image_array)
+            try:
+                found_faces, image_array = faces.detect_faces(media.path)
+                face_ids = faces.store_face_embeddings(media.source, media.source_id, found_faces, image_array)
+            except OSError as e:
+                click.echo(f"⚠️ faces skipped {media.path}: {e}")
         if verbose:
             click.echo("💾 saving")
         store.save(media, data, vector, db_path, photo_metadata, location, len(found_faces))
