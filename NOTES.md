@@ -13,7 +13,8 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - Added `search.py` and `photo-archivist query`; search v1 is plain text over archived descriptions/sidecars/metadata, and semantic search is deferred until text-query embeddings and image-embedding backfill are designed
 - Cancellation is deferred for v1; stopping cleanly needs cooperative job state in the archive runner, request-safe status updates, and defined behaviour for the currently processing image
 - Replaced `serve-faces` and `serve-review` with `serve-ui`; the older UI modules remain in the repo while compatibility tests still cover their behaviour
-- Renamed the browser app label to Photo Archiver, increased UI text size, aligned archive controls with a responsive grid, made source/model dropdowns, and hid date fields unless Within period is selected
+- Renamed the browser app label to Photo Archiver, increased UI text size, centred the app at 80% viewport width, aligned archive controls with a responsive grid, made source/model dropdowns, and hid date fields unless Within period is selected
+- Face UI actions now use a same-line toolbar with Refresh on the left and Save on the right, using matching button styling
 - UI archive runs now generate CLIP embeddings by default, manage Ollama, restart it before the run, restart every 25 attempted images, use a 5s cooldown, and show Ollama lifecycle messages in the log stream
 - Added `torch` as an explicit dependency so the default UI embedding path has the runtime required by Transformers CLIP
 
