@@ -1,6 +1,7 @@
 import importlib.metadata
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from httpx import HTTPError
 from pathlib import Path
@@ -28,25 +29,20 @@ class StructureTests(unittest.TestCase):
             list(archive.source_media("photos"))
         self.assertIn("Apple Photos", str(ctx.exception))
 
-    def test_serve_faces_cli(self):
+    def test_torch_dependency_is_explicit_for_embeddings(self):
+        data = tomllib.loads(Path("pyproject.toml").read_text())
+        deps = data["project"]["dependencies"]
+        self.assertTrue(any(dep.startswith("torch") for dep in deps))
+
+    def test_serve_ui_cli(self):
         import archive
 
         with patch("uvicorn.run") as run:
-            result = CliRunner().invoke(archive.cli, ["serve-faces", "--host", "0.0.0.0", "--port", "9000"])
+            result = CliRunner().invoke(archive.cli, ["serve-ui", "--host", "0.0.0.0", "--port", "9000", "--db", "x.db"])
         self.assertEqual(0, result.exit_code)
         run.assert_called_once()
         self.assertEqual("0.0.0.0", run.call_args.kwargs["host"])
         self.assertEqual(9000, run.call_args.kwargs["port"])
-
-    def test_serve_review_cli(self):
-        import archive
-
-        with patch("uvicorn.run") as run:
-            result = CliRunner().invoke(archive.cli, ["serve-review", "--host", "0.0.0.0", "--port", "9001", "--db", "x.db"])
-        self.assertEqual(0, result.exit_code)
-        run.assert_called_once()
-        self.assertEqual("0.0.0.0", run.call_args.kwargs["host"])
-        self.assertEqual(9001, run.call_args.kwargs["port"])
 
     def test_label_face_cli(self):
         import archive
@@ -87,6 +83,17 @@ class StructureTests(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
         backfill.assert_called_once_with("x.db", 5)
         self.assertIn("embeddings: 2 created, 1 skipped", result.output)
+
+    def test_query_cli(self):
+        import archive
+
+        rows = [{"id": "1", "original_path": "/tmp/a.jpg", "text": "caption\nmore"}]
+        with patch.object(archive.search, "find", return_value=rows) as find:
+            result = CliRunner().invoke(archive.cli, ["query", "caption", "--db", "x.db", "--limit", "5"])
+
+        self.assertEqual(0, result.exit_code)
+        find.assert_called_once_with("x.db", "caption", 5)
+        self.assertIn("1\t/tmp/a.jpg\tcaption", result.output)
 
     def test_source_media_shape(self):
         from sources.base import SourceMedia
@@ -129,18 +136,18 @@ class StructureTests(unittest.TestCase):
     def test_archive_cli_uses_onedrive_personal_pictures(self):
         import archive
 
-        with patch.object(archive.onedrive, "media", return_value=[]) as media:
+        with patch.object(archive.archive_runner.onedrive, "media", return_value=[]) as media:
             list(archive.source_media("onedrive"))
 
-        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures", limit=None)
+        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures", limit=None, selection="random", start=None, end=None, hydrate=False)
 
     def test_source_media_defaults_to_onedrive(self):
         import archive
 
-        with patch.object(archive.onedrive, "media", return_value=[]) as media:
+        with patch.object(archive.archive_runner.onedrive, "media", return_value=[]) as media:
             list(archive.source_media())
 
-        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures", limit=None)
+        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures", limit=None, selection="random", start=None, end=None, hydrate=False)
 
     def test_archive_cli_accepts_specific_image_path(self):
         import archive
@@ -174,10 +181,10 @@ class StructureTests(unittest.TestCase):
     def test_source_media_passes_limit_to_onedrive(self):
         import archive
 
-        with patch.object(archive.onedrive, "media", return_value=[]) as media:
+        with patch.object(archive.archive_runner.onedrive, "media", return_value=[]) as media:
             list(archive.source_media("onedrive", limit=2))
 
-        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures", limit=2)
+        media.assert_called_once_with(Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures", limit=2, selection="random", start=None, end=None, hydrate=False)
 
     def test_onedrive_media_samples_randomly_when_limited(self):
         from sources import onedrive

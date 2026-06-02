@@ -109,7 +109,7 @@ photo-archivist --source onedrive --limit 5 --preview
 
 ## Reduce load
 
-The full pipeline is expensive. Embeddings are off by default because CLIP currently needs PyTorch, which is not installed with the tool. For a gentler run, disable other parts you do not need:
+The full pipeline is expensive. CLI embeddings are off by default, while UI archive runs generate embeddings by default. For a gentler CLI run, disable other parts you do not need:
 
 ```bash
 photo-archivist --image ~/Pictures/example.jpg --no-faces --no-geocode
@@ -173,43 +173,20 @@ export OLLAMA_MODEL=gemma4:e2b
 export VISION_BACKEND=ollama
 ```
 
-MLX-VLM is available as an alternative backend. It runs natively on Apple
-Silicon (unified memory, Metal + Neural Engine) and defaults to the
-`unsloth/gemma-4-E2B-it-UD-MLX-4bit` model — an Unsloth Dynamic 4-bit quant
-(~1B on disk) that fits comfortably in 8GB while keeping the precision-sensitive
-layers intact:
+## MLflow description comparison
+
+Run a local MLflow experiment that re-describes already archived images without overwriting existing sidecars:
 
 ```bash
-photo-archivist --image ~/Pictures/example.jpg --backend mlx-vlm
-```
-
-Pick a different MLX model with the same `--model` flag (e.g. the larger
-`unsloth/gemma-4-E4B-it-UD-MLX-4bit`, ~2B on disk):
-
-```bash
-photo-archivist --image ~/Pictures/example.jpg --backend mlx-vlm --model unsloth/gemma-4-E4B-it-UD-MLX-4bit
-```
-
-Or set the default model via the environment:
-
-```bash
-export MLX_VLM_MODEL=unsloth/gemma-4-E2B-it-UD-MLX-4bit
-```
-
-## MLflow MLX comparison
-
-Run a local MLflow experiment that re-describes already archived images with the MLX Gemma 4 UD 4-bit model without overwriting existing sidecars:
-
-```bash
-uv run python -m mlx_mlflow_experiment --limit 50
+uv run python -m mlflow_experiment --limit 50
 ```
 
 For each sampled image, MLflow logs:
 
 - the original image
 - the existing `.description.md` content, or DB description if the sidecar is missing
-- the new MLX-generated `mlx.description.md`
-- metadata including timing and structured MLX output
+- the new `generated.description.md`
+- metadata including timing and structured output
 
 Start the MLflow UI:
 
@@ -219,27 +196,43 @@ uv run mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --
 
 Then open `http://127.0.0.1:5000/`.
 
-## Photo review UI
+## Web UI
 
-Open a view-only image and description browser from `archive.db`:
+Open the unified local UI, shown as **Photo Archiver**:
 
 ```bash
-photo-archivist serve-review
+photo-archivist serve-ui
 ```
 
 Then open:
 
 ```text
-http://127.0.0.1:8716/
+http://127.0.0.1:8714/
 ```
 
-The review UI shows up to three archived images per page, ordered newest first, with the `.description.md` sidecar shown verbatim in a scrollable panel beside each image. If the sidecar is missing, it falls back to the database description. Image routes call OneDrive hydration before serving the original file, so the browser receives the available high-quality original rather than a thumbnail.
+The UI has three tabs:
+
+- Archive: runs the same backend archive pipeline as the CLI, with controls for source, image count, model, random/latest selection, and file-modified date range
+- Faces: shows a random set of unlabelled face crops and saves labels
+- Search: plain-text searches archived descriptions/sidecars and shows matching images
 
 Use another database or port:
 
 ```bash
-photo-archivist serve-review --db ~/photo-archive.db --port 8720
+photo-archivist serve-ui --db ~/photo-archive.db --port 8720
 ```
+
+Only one archive job can run at a time. The UI generates CLIP embeddings by default, manages Ollama for archive runs, restarts it before the run, and restarts it every 25 attempted images with a 5s cooldown. The UI uses file modified time for latest/date-range selection. Image routes call OneDrive hydration before serving the original file, so the browser receives the available high-quality original rather than a thumbnail.
+
+## Search descriptions
+
+Search from the CLI:
+
+```bash
+photo-archivist query "beach sunset" --db archive.db --limit 20
+```
+
+The first version is plain text search over database descriptions, sidecar text when present, activity, place, and original path. Semantic search is planned later.
 
 ## Face labelling
 
@@ -255,25 +248,7 @@ Crops are stored in:
 ~/.photo-archivist/faces/<face_id>.jpg
 ```
 
-Open the labelling UI:
-
-```bash
-photo-archivist serve-faces
-```
-
-Then open:
-
-```text
-http://127.0.0.1:8714/
-```
-
-Use a different port:
-
-```bash
-photo-archivist serve-faces --port 8715
-```
-
-Label one face from the CLI:
+Label faces from the Web UI, or label one face from the CLI:
 
 ```bash
 photo-archivist label-face 24 Tejas
@@ -299,7 +274,7 @@ Refresh existing sidecars after training or relabelling:
 photo-archivist refresh-sidecars ~/Library/CloudStorage/OneDrive-Personal/tejas/Pictures
 ```
 
-Backfill missing CLIP embeddings after installing/running with PyTorch available:
+Backfill missing CLIP embeddings:
 
 ```bash
 uv run photo-archivist backfill-embeddings --limit 100
@@ -389,15 +364,6 @@ photo-archivist backfill-crops
 
 If backfill skips rows, the original source files are unavailable.
 
-### `templates/grid.html` missing after `uv tool install`
-
-The current package configuration does not include template files in the installed wheel. Run the server from the checkout with `PYTHONPATH`:
-
-```bash
-cd /path/to/photo-archivist
-PYTHONPATH=$PWD photo-archivist serve-faces
-```
-
 ### `--source photos` fails
 
 Apple Photos support was removed. Use OneDrive or a local path.
@@ -409,7 +375,11 @@ photo-archivist --source ~/Pictures/export
 
 ### `CLIPModel requires the PyTorch library`
 
-Embeddings were requested but PyTorch is not installed in the CLI environment. Omit `--embed`, or install PyTorch into the tool environment before using embeddings. `--embed` runs CLIP in a subprocess by default to reduce long-run swap growth, but the subprocess still needs PyTorch installed.
+PyTorch is an explicit dependency because the UI generates embeddings by default. If an older installed tool still reports this error, reinstall it:
+
+```bash
+uv tool install --reinstall .
+```
 
 ### HEIC files fail to open
 
@@ -435,14 +405,16 @@ uv run photo-archivist --help
 
 Project layout:
 
-- `archive.py`: CLI orchestration
+- `archive.py`: CLI entrypoints
+- `archive_runner.py`: shared archive pipeline
 - `sources/`: OneDrive and local path source handling
 - `metadata.py`: EXIF extraction
 - `geocode.py`: reverse geocoding
 - `describe.py`: vision inference
 - `embed.py`: CLIP embeddings
 - `faces.py`: face detection, crops, labels, classifier
-- `faceui.py`: FastAPI face labelling UI
+- `webui.py`: unified FastAPI UI
+- `search.py`: shared plain-text search
 - `store.py`: SQLite catalogue
 - `sidecar.py`: Markdown sidecars
 - `open_original.py`: Finder helpers

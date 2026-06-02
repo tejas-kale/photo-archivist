@@ -7,7 +7,7 @@
 - Write terse code. Prefer direct functions and explicit branches. Avoid unnecessary abstractions, base classes, registries, decorators, and framework-shaped designs.
 - Let code fail loudly. Do not wrap broad `try/except`; only catch errors when adding clear user-facing value.
 - Keep CLI output and option names stable. Any user-visible flag, environment variable, model default, prompt, or workflow change needs documentation.
-- Treat source selection, OneDrive path handling, image paths, EXIF extraction, geocoding, face detection, Ollama/mlx-vlm requests, embeddings, SQLite rows, sidecars, and open-original behaviour as behaviours that need tests when touched.
+- Treat source selection, OneDrive path handling, image paths, EXIF extraction, geocoding, face detection, Ollama requests, embeddings, SQLite rows, sidecars, and open-original behaviour as behaviours that need tests when touched.
 - Keep config strict. Missing required values should raise rather than silently invent defaults.
 - Make atomic commits: one coherent change per commit, with tests/docs included when relevant.
 - Keep `NOTES.md` current. Add new decisions/rationale/evidence when changing behaviour, adding features, or hitting unexpected constraints. Use the same table format as the existing entries.

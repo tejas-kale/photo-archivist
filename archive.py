@@ -3,32 +3,17 @@ from pathlib import Path
 
 import click
 
+import archive_runner
 import describe
 import embed
 import faces
 import geocode
 import metadata
 import ollama_ctl
+import search
 import sidecar as sidecars
 import store
-from sources import onedrive
-from sources.base import SourceMedia
-
-
-ONEDRIVE_PATH = Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures"
-
-
-def source_media(source=None, image=None, limit=None):
-    if source == "photos":
-        raise ValueError("Apple Photos source is no longer supported. Use OneDrive or a local path.")
-    if image:
-        path = onedrive.ensure_local(image)
-        return [SourceMedia("onedrive", str(path), path, {"path": str(path)})]
-    return onedrive.media(ONEDRIVE_PATH if source in (None, "onedrive") else source, limit=limit)
-
-
-def embedding_blob(path, subprocess_mode):
-    return embed.embedding_blob_subprocess(path) if subprocess_mode else embed.embedding_blob(path)
+from archive_runner import ArchiveOptions, embedding_blob, source_media
 
 
 def backfill_embeddings(db_path, limit):
@@ -75,68 +60,13 @@ def backfill_embeddings(db_path, limit):
 def cli(ctx, source, image, db_path, backend, model, limit, retries, preview, write_embedding, embed_subprocess, write_sidecar, write_geocode, write_faces, manage_ollama, restart_ollama_every, cooldown, verbose):
     if ctx.invoked_subcommand:
         return
-    if restart_ollama_every and not manage_ollama:
-        raise click.ClickException("--restart-ollama-every requires --manage-ollama")
-    if manage_ollama:
-        ollama_ctl.restart(cooldown)
-    processed = 0
-    attempted = 0
-    for media in source_media(source, image, limit):
-        click.echo(f"🔎 {media.path}")
-        if preview:
-            subprocess.run(["open", "-a", "Preview", media.path], check=True)
-        if verbose:
-            click.echo("🧾 metadata")
-        photo_metadata = metadata.extract_metadata(media.path)
-        location = None
-        if write_geocode and photo_metadata.gps_lat is not None and photo_metadata.gps_lon is not None:
-            if verbose:
-                click.echo("🗺️ geocoding")
-            location = geocode.reverse_geocode(photo_metadata.gps_lat, photo_metadata.gps_lon)
-        if verbose:
-            click.echo("🧠 describing")
-        try:
-            data = describe.coerce(describe.describe(media.path, backend=backend, model=model, retries=retries))
-        except RuntimeError as e:
-            click.echo(f"⚠️ skipped {media.path}: {e}")
-            attempted += 1
-            if restart_ollama_every and attempted % restart_ollama_every == 0:
-                ollama_ctl.restart(cooldown)
-            continue
-        if verbose and write_embedding:
-            click.echo("🧬 embedding")
-        try:
-            vector = embedding_blob(media.path, embed_subprocess) if write_embedding else None
-        except RuntimeError as e:
-            click.echo(f"⚠️ embedding skipped {media.path}: {e}")
-            vector = None
-        found_faces = []
-        face_ids = []
-        if write_faces:
-            if verbose:
-                click.echo("🙂 faces")
-            try:
-                found_faces, image_array = faces.detect_faces(media.path)
-                face_ids = faces.store_face_embeddings(media.source, media.source_id, found_faces, image_array)
-            except OSError as e:
-                click.echo(f"⚠️ faces skipped {media.path}: {e}")
-        if verbose:
-            click.echo("💾 saving")
-        store.save(media, data, vector, db_path, photo_metadata, location, len(found_faces))
-        if write_sidecar:
-            try:
-                click.echo(f"📝 {sidecars.write(media, data, photo_metadata, location, found_faces, face_ids)}")
-            except OSError as e:
-                click.echo(f"⚠️ sidecar skipped {media.path}: {e}")
-        click.echo("✅ archived")
-        processed += 1
-        attempted += 1
-        if restart_ollama_every and attempted % restart_ollama_every == 0:
-            ollama_ctl.restart(cooldown)
-        if limit and processed >= limit:
-            break
-    if manage_ollama:
-        ollama_ctl.stop()
+    options = ArchiveOptions(source, image, db_path, backend, model, limit, retries, preview, write_embedding, embed_subprocess, write_sidecar, write_geocode, write_faces, manage_ollama, restart_ollama_every, cooldown, verbose)
+    try:
+        for event in archive_runner.archive_events(options, source_func=source_media):
+            if event["type"] == "log":
+                click.echo(event["message"])
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
 
 
 @cli.command("label-face")
@@ -161,28 +91,27 @@ def backfill_embeddings_cmd(db_path, limit):
     click.echo(f"embeddings: {created} created, {skipped} skipped")
 
 
-@cli.command("serve-faces")
+@cli.command("query")
+@click.argument("query")
+@click.option("--db", "db_path", default="archive.db", show_default=True)
+@click.option("--limit", default=50, show_default=True, type=int)
+def query_cmd(query, db_path, limit):
+    for row in search.find(db_path, query, limit):
+        first = row["text"].splitlines()[0] if row["text"] else ""
+        click.echo(f"{row['id']}\t{row['original_path']}\t{first}")
+
+
+@cli.command("serve-ui")
 @click.option("--host", default="127.0.0.1", show_default=True)
 @click.option("--port", default=8714, show_default=True)
-def serve_faces(host, port):
-    import uvicorn
-
-    from faceui import app
-
-    uvicorn.run(app, host=host, port=port)
-
-
-@cli.command("serve-review")
-@click.option("--host", default="127.0.0.1", show_default=True)
-@click.option("--port", default=8716, show_default=True)
 @click.option("--db", "db_path", default="archive.db", show_default=True)
-def serve_review(host, port, db_path):
+def serve_ui(host, port, db_path):
     import uvicorn
 
-    import reviewui
+    import webui
 
-    reviewui.DB_PATH = Path(db_path)
-    uvicorn.run(reviewui.app, host=host, port=port)
+    webui.DB_PATH = Path(db_path)
+    uvicorn.run(webui.app, host=host, port=port)
 
 
 @cli.command("train-faces")

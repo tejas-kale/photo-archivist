@@ -5,9 +5,9 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 
-class MlxMlflowExperimentTests(unittest.TestCase):
+class MlflowExperimentTests(unittest.TestCase):
     def test_processed_images_selects_processed_rows(self):
-        import mlx_mlflow_experiment as exp
+        import mlflow_experiment as exp
 
         with tempfile.TemporaryDirectory() as d:
             db = Path(d) / "archive.db"
@@ -21,9 +21,9 @@ class MlxMlflowExperimentTests(unittest.TestCase):
         self.assertEqual(1, len(rows))
         self.assertEqual("a", rows[0]["id"])
 
-    def test_log_image_logs_original_existing_and_mlx_description(self):
+    def test_log_image_logs_original_existing_and_generated_description(self):
         import describe
-        import mlx_mlflow_experiment as exp
+        import mlflow_experiment as exp
 
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
@@ -32,13 +32,14 @@ class MlxMlflowExperimentTests(unittest.TestCase):
             image.with_name("a.description.md").write_text("existing")
             row = {"id": "a", "original_path": str(image), "description": "db desc", "indexed_at": "now"}
             result = describe.VisionResult(description_prose="new desc")
-            with patch.object(exp.onedrive, "ensure_local", return_value=image), patch.object(exp.describe, "describe", return_value=result), patch.object(exp.mlflow, "log_artifacts") as log_artifacts, patch.object(exp.time, "monotonic", side_effect=[1, 3]):
-                seconds = exp.log_image(row, "model", root / "out")
+            with patch.object(exp.onedrive, "ensure_local", return_value=image), patch.object(exp.describe, "describe", return_value=result) as describe_image, patch.object(exp.mlflow, "log_artifacts") as log_artifacts, patch.object(exp.time, "monotonic", side_effect=[1, 3]):
+                seconds = exp.log_image(row, "ollama", "model", root / "out")
 
             out = root / "out" / "a"
             self.assertEqual(2, seconds)
+            describe_image.assert_called_once_with(image, backend="ollama", model="model", retries=0)
             self.assertEqual("existing", (out / "existing.description.md").read_text())
-            self.assertIn("new desc", (out / "mlx.description.md").read_text())
+            self.assertIn("new desc", (out / "generated.description.md").read_text())
             self.assertTrue((out / "a.jpg").exists())
             log_artifacts.assert_called_once()
 

@@ -33,35 +33,34 @@ def write_text(path, text):
     return path
 
 
-def log_image(row, model, root):
+def log_image(row, backend, model, root):
     image = onedrive.ensure_local(Path(row["original_path"]))
     existing = sidecar_path(image)
     start = time.monotonic()
-    result = describe.describe(image, backend="mlx-vlm", model=model, retries=0)
+    result = describe.describe(image, backend=backend, model=model, retries=0)
     seconds = time.monotonic() - start
     out = root / str(row["id"])
-    new_sidecar = write_text(out / "mlx.description.md", "---\n" + json.dumps({"model": model, "source_id": row["id"]}, indent=2) + "\n---\n\n## Description\n" + result.description_prose + "\n")
-    existing_copy = write_text(out / "existing.description.md", existing.read_text() if existing.exists() else row["description"] or "")
-    metadata = write_text(out / "metadata.json", json.dumps({"id": row["id"], "image": str(image), "indexed_at": row["indexed_at"], "seconds": seconds, "mlx": asdict(result)}, indent=2, default=str))
-    image_copy = out / image.name
-    shutil.copy2(image, image_copy)
+    write_text(out / "generated.description.md", "---\n" + json.dumps({"backend": backend, "model": model, "source_id": row["id"]}, indent=2) + "\n---\n\n## Description\n" + result.description_prose + "\n")
+    write_text(out / "existing.description.md", existing.read_text() if existing.exists() else row["description"] or "")
+    write_text(out / "metadata.json", json.dumps({"id": row["id"], "image": str(image), "indexed_at": row["indexed_at"], "seconds": seconds, "result": asdict(result)}, indent=2, default=str))
+    shutil.copy2(image, out / image.name)
     mlflow.log_artifacts(out, artifact_path=f"images/{row['id']}")
     return seconds
 
 
-def run(db_path="archive.db", limit=50, model=describe.MLX_MODEL, tracking_uri="sqlite:///mlflow.db", experiment="mlx-description-comparison"):
+def run(db_path="archive.db", limit=50, backend=describe.DEFAULT_BACKEND, model=describe.OLLAMA_MODEL, tracking_uri="sqlite:///mlflow.db", experiment="description-comparison"):
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment)
     rows = processed_images(db_path, limit)
-    with tempfile.TemporaryDirectory() as d, mlflow.start_run(run_name=f"{model}-{limit}"):
-        mlflow.log_params({"model": model, "db_path": str(db_path), "limit": limit, "backend": "mlx-vlm"})
+    with tempfile.TemporaryDirectory() as d, mlflow.start_run(run_name=f"{backend}-{model}-{limit}"):
+        mlflow.log_params({"backend": backend, "model": model, "db_path": str(db_path), "limit": limit})
         ok = 0
         failed = 0
         total_seconds = 0.0
         root = Path(d)
         for row in rows:
             try:
-                total_seconds += log_image(row, model, root)
+                total_seconds += log_image(row, backend, model, root)
                 ok += 1
             except Exception as e:
                 failed += 1
@@ -75,11 +74,12 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--db", default="archive.db")
     p.add_argument("--limit", type=int, default=50)
-    p.add_argument("--model", default=describe.MLX_MODEL)
+    p.add_argument("--backend", default=describe.DEFAULT_BACKEND)
+    p.add_argument("--model", default=describe.OLLAMA_MODEL)
     p.add_argument("--tracking-uri", default="sqlite:///mlflow.db")
-    p.add_argument("--experiment", default="mlx-description-comparison")
+    p.add_argument("--experiment", default="description-comparison")
     args = p.parse_args()
-    ok, failed = run(args.db, args.limit, args.model, args.tracking_uri, args.experiment)
+    ok, failed = run(args.db, args.limit, args.backend, args.model, args.tracking_uri, args.experiment)
     print(f"logged {ok} images, {failed} failures")
 
 

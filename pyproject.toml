@@ -11,7 +11,6 @@ dependencies = [
     "jinja2>=3.1.0",
     "numpy>=2.0.0",
     "mlflow>=3.13.0",
-    "mlx-vlm>=0.5.0",
     "onnxruntime>=1.24.3",
     "pillow>=12.2.0",
     "pillow-heif>=1.1.1",
@@ -22,7 +21,7 @@ dependencies = [
     "sqlite-utils>=3.39",
     "transformers>=4.50.0",
     "uvicorn>=0.34.0",
-    "mlflow>=3.13.0",
+    "torch>=2.7.0",
 ]
 
 [project.scripts]
@@ -33,5 +32,5 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["archive", "describe", "embed", "store", "sidecar", "open_original", "metadata", "geocode", "faces", "faceui", "reviewui", "ollama_ctl", "mlx_mlflow_experiment"]
+py-modules = ["archive", "archive_runner", "describe", "embed", "store", "sidecar", "open_original", "metadata", "geocode", "faces", "faceui", "reviewui", "webui", "search", "ollama_ctl", "mlflow_experiment"]
 packages = ["sources"]

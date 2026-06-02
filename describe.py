@@ -1,7 +1,6 @@
 import base64
 import json
 import os
-import subprocess
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -13,7 +12,6 @@ from pillow_heif import register_heif_opener
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
-MLX_MODEL = os.getenv("MLX_VLM_MODEL", "unsloth/gemma-4-E2B-it-UD-MLX-4bit")
 DEFAULT_BACKEND = os.getenv("VISION_BACKEND", "ollama")
 DEFAULT_PROMPT = "Return only JSON with keys: rating keep/review/cull, cull_reason string, focus sharp/acceptable/soft, exposure strong/adequate/poor/clipped, depth_of_field shallow/standard/deep, noise clean/some/heavy, lighting string, time_of_day string, dominant_color_palette string, dominant_colors list, people_count integer, keywords list, description_prose two lines, activity two words."
 
@@ -111,8 +109,6 @@ def maybe_int(value):
 
 
 def describe_once(path, prompt=DEFAULT_PROMPT, backend=DEFAULT_BACKEND, model=None):
-    if backend == "mlx-vlm":
-        return describe_mlx(path, prompt, model or MLX_MODEL)
     if backend == "ollama":
         return describe_ollama(path, prompt, model or OLLAMA_MODEL)
     raise ValueError(f"Unknown backend: {backend}")
@@ -130,13 +126,3 @@ def describe_ollama(path, prompt=DEFAULT_PROMPT, model=OLLAMA_MODEL, timeout=600
     r = httpx.post(f"{OLLAMA_URL}/api/generate", json=body, timeout=timeout)
     r.raise_for_status()
     return r.json()["response"].strip()
-
-
-def describe_mlx(path, prompt=DEFAULT_PROMPT, model=MLX_MODEL, max_tokens=160):
-    r = subprocess.run(
-        ["python", "-m", "mlx_vlm.generate", "--model", model, "--image", str(path), "--prompt", prompt, "--max-tokens", str(max_tokens)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return r.stdout.strip()

@@ -2,7 +2,20 @@
 
 ## What was done
 
-photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama or mlx-vlm), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
+photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
+
+### Unified CLI/UI planning (Session 8, 2 June)
+
+- Added a two-mode shape: existing CLI behaviour remains stable, and a new FastAPI-backed UI exposes the same core backend functions through a lightweight HTML/CSS/JavaScript interface
+- Added `archive_runner.py` so CLI and UI use one event-emitting archive backend instead of two archive loops
+- Added `serve-ui` with Archive, Faces, and Search tabs; archive controls start with a subset only: source, image count, model, random/latest selection, and file-modified date range
+- Archive selection v1 uses file modified time for "latest first" and time-period filtering; EXIF capture-time filtering is deferred because it requires slower metadata reads before the run
+- Added `search.py` and `photo-archivist query`; search v1 is plain text over archived descriptions/sidecars/metadata, and semantic search is deferred until text-query embeddings and image-embedding backfill are designed
+- Cancellation is deferred for v1; stopping cleanly needs cooperative job state in the archive runner, request-safe status updates, and defined behaviour for the currently processing image
+- Replaced `serve-faces` and `serve-review` with `serve-ui`; the older UI modules remain in the repo while compatibility tests still cover their behaviour
+- Renamed the browser app label to Photo Archiver, increased UI text size, aligned archive controls with a responsive grid, made source/model dropdowns, and hid date fields unless Within period is selected
+- UI archive runs now generate CLIP embeddings by default, manage Ollama, restart it before the run, restart every 25 attempted images, use a 5s cooldown, and show Ollama lifecycle messages in the log stream
+- Added `torch` as an explicit dependency so the default UI embedding path has the runtime required by Transformers CLIP
 
 ### Per-image face detection failure handling (Session 6, 30 May)
 
@@ -36,11 +49,12 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 - Added `ollama_ctl.py` plus `--manage-ollama`, `--restart-ollama-every N`, and `--cooldown SECONDS` so long runs can restart Ollama every 20-25 images
 - `--restart-ollama-every` requires `--manage-ollama` to avoid killing a manually managed Ollama server
 
-### MLflow MLX comparison (Session 7, 1 June)
+### MLflow comparison retained; MLX experiment removed (Session 7, 1 June)
 
-- Added `mlx_mlflow_experiment.py` and `mlflow` dependency for local experiment tracking backed by local SQLite (`sqlite:///mlflow.db`)
-- The script samples already processed `archive.db` rows, runs MLX-VLM with `unsloth/gemma-4-E2B-it-UD-MLX-4bit`, and logs original image, existing sidecar/DB description, new MLX description, and metadata to MLflow
-- Existing `.description.md` files are not overwritten; MLX outputs are logged as MLflow artefacts only
+- Replaced `mlx_mlflow_experiment.py` with `mlflow_experiment.py`, keeping local MLflow tracking backed by SQLite (`sqlite:///mlflow.db`)
+- The script still samples already processed `archive.db` rows and logs original image, existing sidecar/DB description, generated description, metadata, timings, and failures to MLflow
+- Removed the `mlx-vlm` backend, `mlx-vlm` dependency, `MLX_VLM_MODEL`, `describe_mlx()`, MLX README instructions, and the old MLX-specific generated artefact name
+- Rationale: the observed Unsloth UD 4-bit MLX run used roughly the same RAM/swap as Ollama Gemma 4 E2B, so it did not justify the extra backend/dependency surface
 
 ### Embedding backfill (Session 7, 1 June)
 
@@ -211,11 +225,9 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Decision | Rationale |
 |---|---|
 | Ollama (`gemma4:e2b`) as primary backend | User explicitly rejected OpenRouter; local, no API key, faster iteration; switched from `gemma4:e4b` for lower load |
-| `mlx-vlm` as alternative | User wanted a fallback; MLX-native for Apple Silicon (unified memory, Metal + Neural Engine — no CPU/GPU split like Ollama) |
-| `DEFAULT_BACKEND = "ollama"` | User's explicit choice; mlx-vlm downloads PyTorch model binaries (605MB) |
-| MLX default model → `unsloth/gemma-4-E2B-it-UD-MLX-4bit` (was Qwen3.5-VL-9B-4bit) | 9B never fit the user's 8GB Mac, where even Ollama's 2B is sluggish; the UD 4-bit gemma-4-E2B is ~1B on disk, leaving OS/app headroom. `--model` / `MLX_VLM_MODEL` still override (e.g. `unsloth/gemma-4-E4B-it-UD-MLX-4bit`, ~2B) |
-| Chose the **UD** (Unsloth Dynamic) quant, not a flat MLX 4-bit | Flat MLX 4-bit Gemma 4 quants (mlx-community/unsloth non-UD) emit garbage because they quantize the Per-Layer Embedding (PLE) layers; UD keeps precision-sensitive layers higher-precision, so quality-per-byte beats a flat Q4 |
-| Reuse existing `mlx_vlm.generate` CLI (`--model/--image/--prompt/--max-tokens`) | Verified against mlx-vlm 0.5.0 gemma4 docs; the UD-MLX-4bit repo loads through the same path, so no `describe_mlx` API change was needed — only the default model |
+| `DEFAULT_BACKEND = "ollama"` | User's explicit choice; only supported vision backend after the MLX experiment was removed |
+| Remove `mlx-vlm` backend and dependency | Unsloth UD 4-bit MLX did not materially reduce observed RAM/swap versus Ollama Gemma 4 E2B, and keeping another backend adds test/docs/dependency load |
+| Keep MLflow experiment tracking | MLflow remains useful for comparing generated descriptions, timings, failures, and artefacts even without MLX |
 
 ### Structured vision output
 
@@ -231,7 +243,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Decision | Rationale |
 |---|---|
 | `openai/clip-vit-base-patch32` via transformers | Standard 512-dim embeddings for similarity search |
-| `--embed/--no-embed` flag (default: no-embed) | PyTorch is not installed by default; embeddings remain opt-in for similarity search |
+| `--embed/--no-embed` flag (CLI default: no-embed) | CLI stays gentler by default; UI enables embeddings by default for richer archive records |
 | User hit missing PyTorch after the previous default tried CLIP | PyTorch dependency is heavy and unnecessary for simple archiving |
 
 ### Metadata extraction
@@ -282,6 +294,31 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Source type in sidecar path: `apple_photos/` vs local | Prevents filename collisions across sources |
 | Face bboxes in sidecar with quality + inferred names | Makes sidecar self-contained for browsing without querying faces.db |
 
+### Unified CLI/UI architecture
+
+| Decision | Rationale |
+|---|---|
+| Keep the CLI as the stable default mode | Existing command behaviour and flags are already documented and tested; UI work should not regress batch archiving |
+| Extract the archive loop into a shared runner that emits events | CLI can print events while FastAPI can expose progress/log state; avoids two archive implementations |
+| Preselect candidate paths before processing | Gives the UI a real total for progress bars and supports random/latest/time-period selection; costs one source scan up front, but avoids OneDrive hydration until each image is actually read |
+| Use file modified time for latest/time-period filters | Fast and available for unarchived images; less semantically precise than EXIF capture time |
+| Start with one archive job at a time | Avoids SQLite locks, Ollama contention, InsightFace memory pressure, and an unusable laptop |
+| Use simple polling or SSE for progress/logs | Keeps the frontend small and responsive; polling is easiest, SSE is cleaner for streaming logs |
+| Use plain text search first | Smallest shared CLI/UI feature; semantic search needs text embeddings, ranking design, and fallback/backfill behaviour |
+| Serve the UI on `127.0.0.1` by default | The app serves local original images, so LAN exposure without auth is unsafe |
+| Replace `serve-faces`/`serve-review` with `serve-ui` | One local web surface is simpler than separate servers; old modules remain until the unified routes have enough real-use soak time |
+
+### Future UI/search improvements
+
+| Improvement | Trade-off |
+|---|---|
+| Cooperative cancellation | Needs shared job state and clear stop points; current-image processing may still finish before stopping |
+| Semantic search | Requires CLIP/text embedding support, optional image embeddings, ranking tests, and a backfill path |
+| EXIF capture-time filtering | More accurate photo chronology; slower because metadata must be read before selecting candidates |
+| Thumbnail cache | Faster grids and lower memory/bandwidth; adds cache invalidation and storage management |
+| Retry failed images from the UI | Useful for transient OneDrive/Ollama failures; requires persisted failure state |
+| Broader archive controls | More parity with CLI; risks turning the first UI into a dense settings panel |
+
 ### Architecture patterns
 
 | Decision | Rationale |
@@ -297,11 +334,13 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 
 ## Evidence and alternatives explored
 
-### Ollama vs OpenRouter vs mlx-vlm
+### Ollama vs OpenRouter vs MLX
 
 - **OpenRouter** was implemented first (httpx to `/api/v1/chat/completions`). User said "Remove Openrouter configuration and add support for Ollama instead."
 - **Ollama** worked immediately with `gemma4:e4b`, then defaulted to `gemma4:e2b` to reduce load. On an M1 MacBook Air, `gemma4:e2b` processes each image noticeably faster and avoids making the machine unusable; output quality still needs comparison against `gemma4:e4b`. Occasional empty responses fixed with retries. JSON format flag works most of the time but not always.
-- **mlx-vlm** downloaded 605MB PyTorch model on first run, took >40s model load time. Kept as alternative backend but not default.
+- **MLX / Unsloth UD 4-bit** looked promising because 4-bit weights should shrink the model files, but the observed runtime memory was still about 4GB RAM plus 6-8GB swap, similar to Ollama Gemma 4 E2B.
+- Explanation: 4-bit quantisation mainly shrinks weights, not total inference memory. KV cache, activations, prompt/image buffers, tokenizer/runtime allocations, and Metal unified-memory buffers still count. Unsloth Dynamic quantisation also keeps precision-sensitive tensors above 4-bit for quality. Ollama's model is already quantised and efficient, and macOS swap is system-wide/sticky after memory pressure.
+- Decision: remove the MLX backend/experiment code and keep the generic MLflow comparison path for future Ollama model evaluations.
 
 ### brctl download failures
 
