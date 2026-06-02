@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 class StructuredTests(unittest.TestCase):
     def test_describe_returns_structured_fields(self):
-        import describe
+        from photo_archivist import describe
 
         payload = {
             "number_people": 2,
@@ -29,7 +29,7 @@ class StructuredTests(unittest.TestCase):
         self.assertEqual("A child plays outside.\nAn adult stands nearby.", data.description_prose)
 
     def test_describe_retries_truncated_json_instead_of_preserving_it(self):
-        import describe
+        from photo_archivist import describe
 
         payload = json.dumps({"description_prose": "clean prose", "people_count": 1})
         with patch.object(describe, "describe_ollama", side_effect=['{"description_prose": "broken', payload]) as ollama:
@@ -39,7 +39,7 @@ class StructuredTests(unittest.TestCase):
         self.assertEqual(2, ollama.call_count)
 
     def test_describe_preserves_plain_text_when_json_is_missing(self):
-        import describe
+        from photo_archivist import describe
 
         text = "A small child is sitting near a window with soft light. The image is slightly blurry."
         with patch.object(describe, "describe_ollama", return_value=text):
@@ -50,7 +50,7 @@ class StructuredTests(unittest.TestCase):
         self.assertIsNone(data.people_count)
 
     def test_ollama_requests_json_format(self):
-        import describe
+        from photo_archivist import describe
 
         image = Path(__file__)
         response = Mock()
@@ -64,7 +64,7 @@ class StructuredTests(unittest.TestCase):
         self.assertEqual(768, body["options"]["num_predict"])
 
     def test_mlx_backend_is_removed(self):
-        import describe
+        from photo_archivist import describe
 
         self.assertFalse(hasattr(describe, "MLX_MODEL"))
         self.assertFalse(hasattr(describe, "describe_mlx"))
@@ -72,7 +72,7 @@ class StructuredTests(unittest.TestCase):
             describe.describe_once(Path("x.jpg"), backend="mlx-vlm")
 
     def test_image_data_is_converted_resized_jpeg(self):
-        import describe
+        from photo_archivist import describe
 
         image = Mock()
         converted = Mock()
@@ -88,7 +88,7 @@ class StructuredTests(unittest.TestCase):
         self.assertEqual(b"jpeg", data)
 
     def test_jpeg_image_data_is_also_resized(self):
-        import describe
+        from photo_archivist import describe
 
         image = Mock()
         converted = Mock()
@@ -103,7 +103,7 @@ class StructuredTests(unittest.TestCase):
 
     def test_store_adds_new_columns_to_existing_database(self):
         import sqlite3
-        import store
+        from photo_archivist import store
 
         with tempfile.TemporaryDirectory() as d:
             db_path = Path(d) / "archive.db"
@@ -119,8 +119,8 @@ class StructuredTests(unittest.TestCase):
 
     def test_store_uses_filename_stem_as_primary_key(self):
         import sqlite_utils
-        import store
-        from sources.base import SourceMedia
+        from photo_archivist import store
+        from photo_archivist.sources.base import SourceMedia
 
         data = {
             "number_people": 2,

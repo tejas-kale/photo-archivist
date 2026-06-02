@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 class OpenOriginalTests(unittest.TestCase):
     def test_open_original_uses_open_reveal(self):
-        import open_original
+        from photo_archivist import open_original
 
         with patch.object(open_original.subprocess, "run") as run:
             open_original.open_original(Path("/tmp/x.jpg"))

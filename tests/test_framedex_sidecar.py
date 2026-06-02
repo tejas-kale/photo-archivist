@@ -5,16 +5,16 @@ from pathlib import Path
 
 import yaml
 
-from describe import VisionResult
-from faces import FaceEmbedding
-from geocode import LocationResult
-from metadata import PhotoMetadata
-from sources.base import SourceMedia
+from photo_archivist.describe import VisionResult
+from photo_archivist.faces import FaceEmbedding
+from photo_archivist.geocode import LocationResult
+from photo_archivist.metadata import PhotoMetadata
+from photo_archivist.sources.base import SourceMedia
 
 
 class FramedexSidecarTests(unittest.TestCase):
     def test_writes_sidecar_for_onedrive(self):
-        import sidecar
+        from photo_archivist import sidecar
 
         with tempfile.TemporaryDirectory() as d:
             image = Path(d) / "IMG_1234.jpeg"
@@ -41,7 +41,7 @@ class FramedexSidecarTests(unittest.TestCase):
         self.assertIn("## Description\nTwo lines\nof prose", text)
 
     def test_sidecar_ignores_predicted_names(self):
-        import sidecar
+        from photo_archivist import sidecar
 
         with tempfile.TemporaryDirectory() as d:
             image = Path(d) / "IMG_1234.jpeg"
@@ -57,7 +57,7 @@ class FramedexSidecarTests(unittest.TestCase):
         self.assertNotIn("person_name", frontmatter["faces"][0])
 
     def test_sidecar_path_is_beside_image(self):
-        import sidecar
+        from photo_archivist import sidecar
 
         with tempfile.TemporaryDirectory() as d:
             image = Path(d) / "IMG_1234.jpeg"
@@ -68,7 +68,7 @@ class FramedexSidecarTests(unittest.TestCase):
         self.assertEqual(image.with_name(f"{image.stem}.description.md"), path)
 
     def test_refresh_sidecars_updates_face_names(self):
-        import sidecar
+        from photo_archivist import sidecar
 
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "IMG_1234.description.md"

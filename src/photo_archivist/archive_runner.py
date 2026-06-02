@@ -3,16 +3,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-import describe
-import embed
-import faces
-import geocode
-import metadata
-import ollama_ctl
-import sidecar as sidecars
-import store
-from sources import onedrive
-from sources.base import SourceMedia
+from photo_archivist import describe, embed, faces, geocode, metadata, ollama_ctl, store
+from photo_archivist import sidecar as sidecars
+from photo_archivist.sources import onedrive
+from photo_archivist.sources.base import SourceMedia
 
 
 ONEDRIVE_PATH = Path.home() / "Library" / "CloudStorage" / "OneDrive-Personal" / "tejas" / "Pictures"

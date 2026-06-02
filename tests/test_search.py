@@ -6,7 +6,7 @@ from pathlib import Path
 
 class SearchTests(unittest.TestCase):
     def test_search_matches_description_and_sidecar(self):
-        import search
+        from photo_archivist import search
 
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
@@ -30,7 +30,7 @@ class SearchTests(unittest.TestCase):
         self.assertEqual("misty hill walk", sidecar[0]["text"])
 
     def test_search_empty_query_returns_empty(self):
-        import search
+        from photo_archivist import search
 
         with tempfile.TemporaryDirectory() as d:
             self.assertEqual([], search.find(Path(d) / "missing.db", ""))

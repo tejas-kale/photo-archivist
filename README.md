@@ -178,7 +178,7 @@ export VISION_BACKEND=ollama
 Run a local MLflow experiment that re-describes already archived images without overwriting existing sidecars:
 
 ```bash
-uv run python -m mlflow_experiment --limit 50
+uv run python -m photo_archivist.experiments.mlflow_experiment --limit 50
 ```
 
 For each sampled image, MLflow logs:
@@ -405,16 +405,17 @@ uv run photo-archivist --help
 
 Project layout:
 
-- `archive.py`: CLI entrypoints
-- `archive_runner.py`: shared archive pipeline
-- `sources/`: OneDrive and local path source handling
-- `metadata.py`: EXIF extraction
-- `geocode.py`: reverse geocoding
-- `describe.py`: vision inference
-- `embed.py`: CLIP embeddings
-- `faces.py`: face detection, crops, labels, classifier
-- `webui.py`: unified FastAPI UI
-- `search.py`: shared plain-text search
-- `store.py`: SQLite catalogue
-- `sidecar.py`: Markdown sidecars
-- `open_original.py`: Finder helpers
+- `src/photo_archivist/cli.py`: CLI entrypoints
+- `src/photo_archivist/archive_runner.py`: shared archive pipeline
+- `src/photo_archivist/sources/`: OneDrive and local path source handling
+- `src/photo_archivist/metadata.py`: EXIF extraction
+- `src/photo_archivist/geocode.py`: reverse geocoding
+- `src/photo_archivist/describe.py`: vision inference
+- `src/photo_archivist/embed.py`: CLIP embeddings
+- `src/photo_archivist/faces.py`: face detection, crops, labels, classifier
+- `src/photo_archivist/web/app.py`: unified FastAPI UI
+- `src/photo_archivist/search.py`: shared plain-text search
+- `src/photo_archivist/store.py`: SQLite catalogue
+- `src/photo_archivist/sidecar.py`: Markdown sidecars
+- `src/photo_archivist/open_original.py`: Finder helpers
+- `src/photo_archivist/experiments/`: local experiment scripts

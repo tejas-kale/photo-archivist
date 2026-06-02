@@ -22,7 +22,7 @@ class Output:
 
 class EmbedTests(unittest.TestCase):
     def test_embedding_accepts_pooled_model_output(self):
-        import embed
+        from photo_archivist import embed
 
         image = Mock()
         image.convert.return_value = image
@@ -36,7 +36,7 @@ class EmbedTests(unittest.TestCase):
         np.testing.assert_allclose(vector, np.array([0.6, 0.8], dtype="float32"))
 
     def test_embedding_registers_heif_opener(self):
-        import embed
+        from photo_archivist import embed
 
         image = Mock()
         image.convert.return_value = image

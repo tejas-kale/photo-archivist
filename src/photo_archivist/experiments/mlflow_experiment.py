@@ -9,8 +9,8 @@ from pathlib import Path
 
 import mlflow
 
-import describe
-from sources import onedrive
+from photo_archivist import describe
+from photo_archivist.sources import onedrive
 
 
 def sidecar_path(image):

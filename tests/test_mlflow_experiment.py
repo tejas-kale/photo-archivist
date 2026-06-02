@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 class MlflowExperimentTests(unittest.TestCase):
     def test_processed_images_selects_processed_rows(self):
-        import mlflow_experiment as exp
+        from photo_archivist.experiments import mlflow_experiment as exp
 
         with tempfile.TemporaryDirectory() as d:
             db = Path(d) / "archive.db"
@@ -22,8 +22,8 @@ class MlflowExperimentTests(unittest.TestCase):
         self.assertEqual("a", rows[0]["id"])
 
     def test_log_image_logs_original_existing_and_generated_description(self):
-        import describe
-        import mlflow_experiment as exp
+        from photo_archivist import describe
+        from photo_archivist.experiments import mlflow_experiment as exp
 
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

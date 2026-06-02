@@ -3,17 +3,9 @@ from pathlib import Path
 
 import click
 
-import archive_runner
-import describe
-import embed
-import faces
-import geocode
-import metadata
-import ollama_ctl
-import search
-import sidecar as sidecars
-import store
-from archive_runner import ArchiveOptions, embedding_blob, source_media
+from photo_archivist import archive_runner, describe, embed, faces, geocode, metadata, ollama_ctl, search, store
+from photo_archivist import sidecar as sidecars
+from photo_archivist.archive_runner import ArchiveOptions, source_media
 
 
 def backfill_embeddings(db_path, limit):
@@ -108,7 +100,7 @@ def query_cmd(query, db_path, limit):
 def serve_ui(host, port, db_path):
     import uvicorn
 
-    import webui
+    from photo_archivist.web import app as webui
 
     webui.DB_PATH = Path(db_path)
     uvicorn.run(webui.app, host=host, port=port)

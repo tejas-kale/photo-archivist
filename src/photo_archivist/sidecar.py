@@ -3,11 +3,11 @@ from pathlib import Path
 
 import yaml
 
-import faces as faces_db
-from describe import VisionResult
-from faces import FaceEmbedding
-from geocode import LocationResult
-from metadata import PhotoMetadata
+from photo_archivist import faces as faces_db
+from photo_archivist.describe import VisionResult
+from photo_archivist.faces import FaceEmbedding
+from photo_archivist.geocode import LocationResult
+from photo_archivist.metadata import PhotoMetadata
 
 
 def root():

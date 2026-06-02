@@ -11,7 +11,7 @@ import numpy as np
 
 class MetadataGeocodeFacesTests(unittest.TestCase):
     def test_extract_metadata_parses_exiftool_json(self):
-        import metadata
+        from photo_archivist import metadata
 
         payload = [{
             "ImageWidth": 4032,
@@ -35,7 +35,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertEqual(51.5, data.gps_lat)
 
     def test_extract_metadata_missing_exiftool_returns_empty(self):
-        import metadata
+        from photo_archivist import metadata
 
         with patch.object(metadata.subprocess, "run", side_effect=FileNotFoundError):
             data = metadata.extract_metadata(Path("x.jpg"))
@@ -44,7 +44,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertIsNone(data.created_at)
 
     def test_reverse_geocode_uses_cache(self):
-        import geocode
+        from photo_archivist import geocode
 
         with tempfile.TemporaryDirectory() as d, patch.object(geocode, "root", return_value=Path(d)):
             first = Mock(raw={"address": {"city": "London", "country": "United Kingdom", "country_code": "gb"}}, address="London, UK")
@@ -60,7 +60,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         sleep.assert_called_once_with(1.1)
 
     def test_face_storage_is_idempotent_for_source_bbox(self):
-        import faces
+        from photo_archivist import faces
 
         face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
@@ -70,7 +70,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertEqual(first, second)
 
     def test_name_for_face_uses_model_prediction_after_label(self):
-        import faces
+        from photo_archivist import faces
 
         labelled = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         unlabelled = faces.FaceEmbedding(np.array([0.99, 0.01], dtype="float32").tobytes(), (5, 6, 7, 8), 0.9)
@@ -83,7 +83,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertEqual("Ishwa", name)
 
     def test_name_for_face_returns_none_without_model(self):
-        import faces
+        from photo_archivist import faces
 
         face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
@@ -93,7 +93,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertIsNone(name)
 
     def test_face_labels_round_trip(self):
-        import faces
+        from photo_archivist import faces
 
         face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         with tempfile.TemporaryDirectory() as d, patch.object(faces, "root", return_value=Path(d)):
@@ -104,7 +104,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertEqual("Tejas", name)
 
     def test_face_db_stores_and_finds_similar_faces(self):
-        import faces
+        from photo_archivist import faces
 
         face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (1, 2, 3, 4), 0.95)
         query = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (5, 6, 7, 8), 0.9)
@@ -118,7 +118,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertEqual([1, 2, 3, 4], rows[0]["bbox"])
 
     def test_detect_faces_returns_image_array(self):
-        import faces
+        from photo_archivist import faces
         from PIL import Image as PILImage
 
         img = PILImage.new("RGB", (100, 80))
@@ -133,7 +133,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertEqual((80, 100, 3), arr.shape)
 
     def test_store_face_embeddings_saves_crops_with_padding(self):
-        import faces
+        from photo_archivist import faces
         from PIL import Image
 
         img = np.zeros((80, 100, 3), dtype="uint8")
@@ -149,7 +149,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
             self.assertEqual((40 + 2 * pad_h, 40 + 2 * pad_w), crop.shape[:2])
 
     def test_crop_clamped_to_image_bounds(self):
-        import faces
+        from photo_archivist import faces
         from PIL import Image
 
         img = np.zeros((80, 100, 3), dtype="uint8")
@@ -161,14 +161,14 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
             self.assertEqual(34, crop.shape[0])
 
     def test_normalized_l2_normalizes_embedding(self):
-        import faces
+        from photo_archivist import faces
 
         vec = np.array([3.0, 4.0], dtype="float32")
         result = faces.normalized(vec.tobytes())
         np.testing.assert_allclose([0.6, 0.8], result)
 
     def test_store_face_embeddings_recreates_missing_crop_for_existing_row(self):
-        import faces
+        from photo_archivist import faces
 
         img = np.zeros((80, 100, 3), dtype="uint8")
         face = faces.FaceEmbedding(np.array([1, 0], dtype="float32").tobytes(), (10, 10, 50, 50), 0.95)
@@ -181,7 +181,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
             self.assertTrue(crop.exists())
 
     def test_backfill_crops_creates_missing_and_skips_unavailable(self):
-        import faces
+        from photo_archivist import faces
         import logging
         from PIL import Image
 
@@ -205,7 +205,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
             self.assertIn("source unavailable", log.output[0])
     def test_train_faces_defaults_to_high_confidence_threshold(self):
         import pickle
-        import faces
+        from photo_archivist import faces
 
         e1 = np.array([1.0, 0.0], dtype="float32")
         e2 = np.array([0.0, 1.0], dtype="float32")
@@ -223,7 +223,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
         self.assertEqual(0.95, data["threshold"])
 
     def test_train_predict_round_trip(self):
-        import faces
+        from photo_archivist import faces
 
         e1 = np.array([1.0, 0.0], dtype="float32")
         e2 = np.array([0.0, 1.0], dtype="float32")
@@ -245,7 +245,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
             self.assertGreater(conf, 0.5)
 
     def test_predict_name_returns_none_below_threshold(self):
-        import faces
+        from photo_archivist import faces
 
         e1 = np.array([1.0, 0.0], dtype="float32")
         e2 = np.array([0.0, 1.0], dtype="float32")
@@ -263,7 +263,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
             self.assertIsNone(name)
 
     def test_train_faces_raises_when_too_few_labels(self):
-        import faces
+        from photo_archivist import faces
 
         e1 = np.array([1.0, 0.0], dtype="float32")
         f1 = faces.FaceEmbedding(e1.tobytes(), (1, 2, 3, 4), 0.95)
@@ -274,7 +274,7 @@ class MetadataGeocodeFacesTests(unittest.TestCase):
 
     def test_train_faces_filters_by_min_labels(self):
         import pickle
-        import faces
+        from photo_archivist import faces
 
         e1 = np.array([1.0, 0.0], dtype="float32")
         e2 = np.array([0.0, 1.0], dtype="float32")

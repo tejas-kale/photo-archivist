@@ -25,12 +25,14 @@ dependencies = [
 ]
 
 [project.scripts]
-photo-archivist = "archive:cli"
+photo-archivist = "photo_archivist.cli:cli"
 
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["archive", "archive_runner", "describe", "embed", "store", "sidecar", "open_original", "metadata", "geocode", "faces", "faceui", "reviewui", "webui", "search", "ollama_ctl", "mlflow_experiment"]
-packages = ["sources"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

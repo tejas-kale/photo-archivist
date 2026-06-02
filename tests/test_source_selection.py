@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 class SourceSelectionTests(unittest.TestCase):
     def test_media_can_return_latest_first_by_mtime(self):
-        from sources import onedrive
+        from photo_archivist.sources import onedrive
 
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
@@ -28,7 +28,7 @@ class SourceSelectionTests(unittest.TestCase):
         self.assertEqual([new.resolve()], [item.path for item in found])
 
     def test_media_filters_by_file_mtime_period_before_sampling(self):
-        from sources import onedrive
+        from photo_archivist.sources import onedrive
 
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

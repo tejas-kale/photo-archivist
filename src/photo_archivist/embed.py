@@ -34,7 +34,7 @@ def embedding_blob(path):
 
 
 def embedding_blob_subprocess(path):
-    r = subprocess.run([sys.executable, "-m", "embed", str(path)], check=False, capture_output=True, text=True)
+    r = subprocess.run([sys.executable, "-m", "photo_archivist.embed", str(path)], check=False, capture_output=True, text=True)
     if r.returncode:
         raise RuntimeError((r.stderr or r.stdout).strip())
     return base64.b64decode(r.stdout.strip())

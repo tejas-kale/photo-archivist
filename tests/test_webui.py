@@ -19,7 +19,7 @@ class WebUITests(unittest.TestCase):
         con.execute("create table media (id text primary key, original_path text, description text, activity text, place text, indexed_at text)")
         con.execute("insert into media values (?, ?, ?, ?, ?, ?)", ("1", str(self.image), "red kite", "flying", "park", "2026"))
         con.commit()
-        import webui
+        from photo_archivist.web import app as webui
         webui.DB_PATH = self.db_path
         webui.reset_job()
         self.webui = webui
@@ -55,7 +55,7 @@ class WebUITests(unittest.TestCase):
         ensure.assert_called_once_with(self.image)
 
     def test_archive_job_runs_shared_backend(self):
-        from sources.base import SourceMedia
+        from photo_archivist.sources.base import SourceMedia
         item = SourceMedia("onedrive", "id", Path("x.jpg"), {})
         data = self.webui.describe.VisionResult(description_prose="caption")
         with patch.object(self.webui.archive_runner, "source_media", return_value=[item]), patch.object(self.webui.metadata, "extract_metadata", return_value=Mock(gps_lat=None, gps_lon=None)), patch.object(self.webui.describe, "describe", return_value=data), patch.object(self.webui.archive_runner.embed, "embedding_blob_subprocess", return_value=b"vector") as embed, patch.object(self.webui.faces, "detect_faces", return_value=([], None)), patch.object(self.webui.faces, "store_face_embeddings", return_value=[]), patch.object(self.webui.store, "save"), patch.object(self.webui.sidecars, "write"), patch.object(self.webui.archive_runner.ollama_ctl, "restart") as restart, patch.object(self.webui.archive_runner.ollama_ctl, "stop") as stop:

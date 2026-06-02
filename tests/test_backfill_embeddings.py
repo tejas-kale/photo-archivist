@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 class BackfillEmbeddingsTests(unittest.TestCase):
     def test_backfill_embeddings_updates_missing_rows(self):
-        import archive
+        from photo_archivist import cli as archive
 
         with tempfile.TemporaryDirectory() as d:
             db_path = Path(d) / "archive.db"
@@ -26,7 +26,7 @@ class BackfillEmbeddingsTests(unittest.TestCase):
         embed.assert_called_once_with(image)
 
     def test_backfill_embeddings_skips_failures_and_honours_limit(self):
-        import archive
+        from photo_archivist import cli as archive
 
         with tempfile.TemporaryDirectory() as d:
             db_path = Path(d) / "archive.db"

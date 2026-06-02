@@ -4,15 +4,23 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### Package layout cleanup (Session 9, 2 June)
+
+- Moved runtime code from flat root modules into `src/photo_archivist/` using setuptools package discovery
+- Updated the console script to `photo_archivist.cli:cli`; runtime defaults and CLI options stay unchanged
+- Moved the unified UI to `src/photo_archivist/web/app.py`, source adapters to `src/photo_archivist/sources/`, and MLflow code to `src/photo_archivist/experiments/mlflow_experiment.py`
+- Removed superseded `faceui.py`, `reviewui.py`, `templates/grid.html`, and their tests after `serve-ui` replaced those separate servers
+- Updated embedding subprocess invocation to `python -m photo_archivist.embed <image>` so packaged installs use the package module path
+
 ### Unified CLI/UI planning (Session 8, 2 June)
 
 - Added a two-mode shape: existing CLI behaviour remains stable, and a new FastAPI-backed UI exposes the same core backend functions through a lightweight HTML/CSS/JavaScript interface
-- Added `archive_runner.py` so CLI and UI use one event-emitting archive backend instead of two archive loops
+- Added `src/photo_archivist/archive_runner.py` so CLI and UI use one event-emitting archive backend instead of two archive loops
 - Added `serve-ui` with Archive, Faces, and Search tabs; archive controls start with a subset only: source, image count, model, random/latest selection, and file-modified date range
 - Archive selection v1 uses file modified time for "latest first" and time-period filtering; EXIF capture-time filtering is deferred because it requires slower metadata reads before the run
 - Added `search.py` and `photo-archivist query`; search v1 is plain text over archived descriptions/sidecars/metadata, and semantic search is deferred until text-query embeddings and image-embedding backfill are designed
 - Cancellation is deferred for v1; stopping cleanly needs cooperative job state in the archive runner, request-safe status updates, and defined behaviour for the currently processing image
-- Replaced `serve-faces` and `serve-review` with `serve-ui`; the older UI modules remain in the repo while compatibility tests still cover their behaviour
+- Replaced `serve-faces` and `serve-review` with `serve-ui`; the older UI modules were later removed during the package layout cleanup
 - Renamed the browser app label to Photo Archiver, increased UI text size, centred the app at 80% viewport width, aligned archive controls with a responsive grid, made source/model dropdowns, and hid date fields unless Within period is selected
 - Face UI actions now use a same-line toolbar with Refresh on the left and Save on the right, using matching button styling
 - UI archive runs now generate CLIP embeddings by default, manage Ollama, restart it before the run, restart every 25 attempted images, use a 5s cooldown, and show Ollama lifecycle messages in the log stream
@@ -44,7 +52,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 
 ### Overnight resource controls (Session 6, 30 May)
 
-- `--embed` now uses `embed.embedding_blob_subprocess()` by default, invoking `python -m embed <image>` per image so PyTorch/CLIP memory exits with the worker process
+- `--embed` now uses `embed.embedding_blob_subprocess()` by default, invoking `python -m photo_archivist.embed <image>` per image so PyTorch/CLIP memory exits with the worker process
 - CLIP embedding now registers the HEIF opener for `.heic`/`.heif`, and archive runs skip failed per-image embeddings instead of aborting the run
 - Added `--no-embed-subprocess` for faster in-process embeddings when memory pressure is acceptable
 - Added `ollama_ctl.py` plus `--manage-ollama`, `--restart-ollama-every N`, and `--cooldown SECONDS` so long runs can restart Ollama every 20-25 images
@@ -307,7 +315,7 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Use simple polling or SSE for progress/logs | Keeps the frontend small and responsive; polling is easiest, SSE is cleaner for streaming logs |
 | Use plain text search first | Smallest shared CLI/UI feature; semantic search needs text embeddings, ranking design, and fallback/backfill behaviour |
 | Serve the UI on `127.0.0.1` by default | The app serves local original images, so LAN exposure without auth is unsafe |
-| Replace `serve-faces`/`serve-review` with `serve-ui` | One local web surface is simpler than separate servers; old modules remain until the unified routes have enough real-use soak time |
+| Replace `serve-faces`/`serve-review` with `serve-ui` | One local web surface is simpler than separate servers; old modules were removed after unified routes covered archive, face labelling, and search |
 
 ### Future UI/search improvements
 

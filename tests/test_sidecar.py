@@ -2,14 +2,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from describe import VisionResult
-from metadata import PhotoMetadata
-from sources.base import SourceMedia
+from photo_archivist.describe import VisionResult
+from photo_archivist.metadata import PhotoMetadata
+from photo_archivist.sources.base import SourceMedia
 
 
 class SidecarTests(unittest.TestCase):
     def test_sidecar_omits_location_and_faces_when_empty(self):
-        import sidecar
+        from photo_archivist import sidecar
 
         with tempfile.TemporaryDirectory() as d:
             image = Path(d) / "IMG_1234.jpeg"

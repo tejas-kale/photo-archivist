@@ -6,15 +6,10 @@ from pathlib import Path
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-import archive_runner
-import describe
-import faces
-import metadata
-import search
-import sidecar as sidecars
-import store
-from archive_runner import ArchiveOptions
-from sources import onedrive
+from photo_archivist import archive_runner, describe, faces, metadata, search, store
+from photo_archivist import sidecar as sidecars
+from photo_archivist.archive_runner import ArchiveOptions
+from photo_archivist.sources import onedrive
 
 
 DB_PATH = Path("archive.db")

@@ -2,7 +2,7 @@ import random
 from datetime import datetime
 from pathlib import Path
 
-from sources.base import SourceMedia
+from photo_archivist.sources.base import SourceMedia
 
 
 EXTENSIONS = {".avif", ".heic", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
