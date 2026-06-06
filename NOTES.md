@@ -4,6 +4,27 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### GCP draft-golden eval plan (Session 11, 5 June)
+
+- Plan to prefill eval goldens with a short-lived private GCP GPU VM rather than writing every description by hand or sending photos to a public hosted model API
+- Local export should strip EXIF, resize candidates to bounded JPEGs, and upload only selected eval candidates, not the full archive
+- VM security shape: custom VPC, no public IP, SSH through IAP, Cloud NAT only for outbound Hugging Face downloads, OS Login, Shielded VM, CMEK-encrypted boot disk, minimal service account, and delete VM/disks after draft generation
+- Preferred first model is `Qwen/Qwen3.5-9B` on a 1× NVIDIA L4 `g2-standard-8` VM; compare against `Qwen/Qwen3.5-35B-A3B` on an A100 80GB VM only if 9B drafts still need too much editing
+- Generated JSONs are weak draft goldens, not final truth; the Evaluate UI should prefill from drafts so the user can approve/edit and mark reviewed labels separately from model-generated labels
+- Added candidate export/import commands, draft prefill in the UI, and scripts/docs for the GCP VM workflow; ran `Qwen/Qwen3.5-9B` on a short-lived GCP L4 VM to generate 180 draft goldens, imported them under `eval/drafts/`, ran focused eval/UI tests, and deleted cost-incurring GCP resources
+- Hardened the remote draft script so malformed model JSON retries and then writes a reviewable fallback draft instead of aborting the batch
+- Observed Qwen draft descriptions are more detailed than the local `gemma4:e2b` archive prompt output; next prompt work should consider richer `description_prose` guidance for production while preserving privacy guardrails
+
+### Evaluation workflow (Session 10, 3 June)
+
+- Added `photo-archivist eval score` to run the archive pipeline over manually chosen `eval/images/` with golden JSONs, score rating accuracy, keyword coverage, and structured-field completeness, print a summary table, and log one MLflow eval run
+- Added `photo-archivist eval query-candidates` to heuristically mine `archive.db` for category candidates from keywords, descriptions, people/face counts, lighting, blur, quality, and rating-like fields; sidecar reads are opt-in via `PHOTO_ARCHIVIST_EVAL_READ_SIDECARS=1` to avoid slow OneDrive probes
+- Added `photo-archivist eval classify-candidates` to fill weak categories using a classification-only `gemma4:e2b` Ollama prompt that returns one fixed category label and does not run the full structured archive prompt
+- Added an Evaluate tab to `serve-ui`; it shows one candidate at a time, supports skip/save, copies labelled images to `eval/images/<category>/`, writes golden JSON beside the copy, and shows per-category progress towards 30
+- Removed the Unsplash fetch path; eval image selection is manual from the existing library and does not require another external API credential
+- Archive events now emit a `vision` event after description, so eval/UI-style consumers can inspect model output without scraping sidecars or widening the SQLite schema
+- Git ignores eval images, candidate state, eval archive DBs, and generated eval sidecars
+
 ### Package layout cleanup (Session 9, 2 June)
 
 - Moved runtime code from flat root modules into `src/photo_archivist/` using setuptools package discovery
@@ -327,6 +348,23 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 | Thumbnail cache | Faster grids and lower memory/bandwidth; adds cache invalidation and storage management |
 | Retry failed images from the UI | Useful for transient OneDrive/Ollama failures; requires persisted failure state |
 | Broader archive controls | More parity with CLI; risks turning the first UI into a dense settings panel |
+
+### Evaluation workflow
+
+| Decision | Rationale |
+|---|---|
+| Keep candidate selection as `query-candidates` and `classify-candidates` | The DB heuristic and Ollama fill pass are independently runnable and auditable before labelling |
+| Keep the classifier prompt label-only | Category selection should be cheap and should not duplicate the full archive structured prompt |
+| Store candidate state in `eval/candidates.json` | The UI can resume labelling without adding SQLite schema or another service |
+| Store labelled copies and goldens under `eval/images/<category>/` | The labelled set is self-contained by category and can stay outside version control with the private images |
+| Choose final coverage manually | The user can accept/skip real library images for well-lit outdoor, indoor/low-light, people, visible text, bad exposure/blurry, and unusual subjects |
+| Emit `vision` events from the archive runner | Eval can score structured model output while still exercising the existing archive pipeline and without changing the media DB schema |
+| Log aggregate metrics and JSON artefacts in one MLflow run | Keeps model comparisons concise while preserving per-image detail for inspection |
+| Use remote self-hosted VLMs only for draft goldens | A private short-lived GCP VM limits exposure compared with public model APIs while avoiding the laptop's local VLM limits |
+| Start with `Qwen/Qwen3.5-9B` on L4 | It should be cheaper and simpler than a 35B model, and draft quality can be judged by edit burden rather than model size |
+| Treat `Qwen/Qwen3.5-35B-A3B` as a bake-off option | MoE active compute is attractive, but full weights still need a larger VM; use it only if it materially reduces manual edits |
+| Strip EXIF and resize before upload | Reduces privacy exposure and transfer cost while preserving enough visual signal for archive-quality draft labels |
+| Keep human review as the acceptance step | Model-generated labels are weak supervision; reviewed labels should be distinguishable from raw drafts in scoring |
 
 ### Architecture patterns
 

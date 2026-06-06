@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from photo_archivist import archive_runner, describe, embed, faces, geocode, metadata, ollama_ctl, search, store
+from photo_archivist import archive_runner, describe, embed, evaluation, faces, geocode, metadata, ollama_ctl, search, store
 from photo_archivist import sidecar as sidecars
 from photo_archivist.archive_runner import ArchiveOptions, source_media
 
@@ -104,6 +104,66 @@ def serve_ui(host, port, db_path):
 
     webui.DB_PATH = Path(db_path)
     uvicorn.run(webui.app, host=host, port=port)
+
+
+@cli.group("eval")
+def eval_cmd():
+    pass
+
+
+@eval_cmd.command("query-candidates")
+@click.option("--db", "db_path", type=click.Path(path_type=Path), default=Path("archive.db"), show_default=True)
+@click.option("--eval-dir", type=click.Path(path_type=Path), default=evaluation.EVAL_DIR, show_default=True)
+def eval_query_candidates(db_path, eval_dir):
+    pool = evaluation.query_candidates(db_path, eval_dir)
+    click.echo(evaluation.counts_table(pool))
+
+
+@eval_cmd.command("classify-candidates")
+@click.option("--db", "db_path", type=click.Path(path_type=Path), default=Path("archive.db"), show_default=True)
+@click.option("--eval-dir", type=click.Path(path_type=Path), default=evaluation.EVAL_DIR, show_default=True)
+@click.option("--sample-size", default=evaluation.EVAL_SAMPLE, show_default=True, type=int)
+@click.option("--target-per-category", default=evaluation.EVAL_TARGET, show_default=True, type=int)
+@click.option("--model", default=evaluation.EVAL_CLASSIFIER_MODEL, show_default=True)
+def eval_classify_candidates(db_path, eval_dir, sample_size, target_per_category, model):
+    pool = evaluation.classify_candidates(db_path, eval_dir, sample_size=sample_size, target_per_category=target_per_category, model=model)
+    click.echo(evaluation.counts_table(pool))
+
+
+@eval_cmd.command("export-candidates")
+@click.option("--eval-dir", type=click.Path(path_type=Path), default=evaluation.EVAL_DIR, show_default=True)
+@click.option("--output", "output_dir", type=click.Path(path_type=Path), default=None)
+@click.option("--limit-per-category", default=30, show_default=True, type=int)
+@click.option("--max-size", default=1280, show_default=True, type=int)
+@click.option("--quality", default=90, show_default=True, type=int)
+def eval_export_candidates(eval_dir, output_dir, limit_per_category, max_size, quality):
+    manifest = evaluation.export_candidates(eval_dir, output_dir, limit_per_category, max_size, quality)
+    click.echo(f"exported {len(manifest)} candidates")
+
+
+@eval_cmd.command("import-drafts")
+@click.option("--eval-dir", type=click.Path(path_type=Path), default=evaluation.EVAL_DIR, show_default=True)
+@click.option("--draft-dir", type=click.Path(path_type=Path), required=True)
+def eval_import_drafts(eval_dir, draft_dir):
+    count = evaluation.import_drafts(eval_dir, draft_dir)
+    click.echo(f"imported {count} drafts")
+
+
+@eval_cmd.command("score")
+@click.option("--eval-dir", type=click.Path(path_type=Path), default=evaluation.EVAL_DIR, show_default=True)
+@click.option("--db", "db_path", type=click.Path(path_type=Path), default=None)
+@click.option("--backend", default=describe.DEFAULT_BACKEND, show_default=True)
+@click.option("--model", default=None)
+@click.option("--retries", default=2, show_default=True, type=int)
+@click.option("--limit", default=None, type=int)
+@click.option("--tracking-uri", default=None)
+@click.option("--experiment", default=None)
+def eval_score(eval_dir, db_path, backend, model, retries, limit, tracking_uri, experiment):
+    try:
+        summary = evaluation.score(eval_dir, backend=backend, model=model, retries=retries, limit=limit, db_path=db_path, tracking_uri=tracking_uri, experiment=experiment)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    click.echo(evaluation.summary_table(summary))
 
 
 @cli.command("train-faces")

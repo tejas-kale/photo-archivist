@@ -28,13 +28,14 @@ class WebUITests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_homepage_has_three_tabs(self):
+    def test_homepage_has_four_tabs(self):
         response = self.client.get("/")
         self.assertEqual(200, response.status_code)
         self.assertIn("Photo Archiver", response.text)
         self.assertIn("Archive", response.text)
         self.assertIn("Faces", response.text)
         self.assertIn("Search", response.text)
+        self.assertIn("Evaluate", response.text)
         self.assertIn('id="sourceChoice"', response.text)
         self.assertIn('id="model"', response.text)
         self.assertIn('id="startWrap" class="field hidden"', response.text)
@@ -42,6 +43,7 @@ class WebUITests(unittest.TestCase):
         self.assertIn("grid-template-columns:220px 120px 210px 210px 140px", response.text)
         self.assertIn("width:80vw;margin:0 auto", response.text)
         self.assertIn('<div class="toolbar"><button id="loadFaces" class="primary">Refresh</button><button id="saveFaces" class="primary">Save</button></div>', response.text)
+        self.assertIn('id="evalCategory"', response.text)
 
     def test_search_endpoint_uses_shared_search(self):
         response = self.client.get("/api/search?q=kite")
@@ -53,6 +55,36 @@ class WebUITests(unittest.TestCase):
             response = self.client.get("/api/images/1")
         self.assertEqual(200, response.status_code)
         ensure.assert_called_once_with(self.image)
+
+    def test_eval_candidate_can_be_labelled_or_skipped(self):
+        candidate = self.root / "candidate.jpg"
+        candidate.write_bytes(b"jpg")
+        self.webui.EVAL_DIR = self.root / "eval"
+        pool = {"categories": {"people": [{"id": "c1", "path": str(candidate), "category": "people", "source": "db"}]}, "skipped": []}
+        self.webui.evaluation.save_pool(self.webui.EVAL_DIR, pool)
+        draft_dir = self.webui.EVAL_DIR / "drafts" / "people"
+        draft_dir.mkdir(parents=True)
+        (draft_dir / "c1.json").write_text('{"rating":"keep","keywords":["family"],"description_prose":"Draft."}')
+
+        response = self.client.get("/api/eval/candidate?category=people")
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("c1", response.json()["candidate"]["id"])
+        self.assertEqual("Draft.", response.json()["candidate"]["draft"]["description_prose"])
+        self.assertEqual(0, response.json()["labelled"])
+
+        response = self.client.post("/api/eval/label", json={"category": "people", "id": "c1", "rating": "keep", "keywords": "family, portrait", "description_prose": "A family portrait."})
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(1, response.json()["labelled"])
+        self.assertTrue((self.webui.EVAL_DIR / "images" / "people" / "candidate.json").exists())
+
+        response = self.client.get("/api/eval/candidate?category=people")
+        self.assertIsNone(response.json()["candidate"])
+
+        pool["categories"]["people"].append({"id": "c2", "path": str(candidate), "category": "people", "source": "db"})
+        self.webui.evaluation.save_pool(self.webui.EVAL_DIR, pool)
+        response = self.client.post("/api/eval/skip", json={"category": "people", "id": "c2"})
+        self.assertEqual(200, response.status_code)
+        self.assertIn("c2", response.json()["skipped"])
 
     def test_archive_job_runs_shared_backend(self):
         from photo_archivist.sources.base import SourceMedia

@@ -188,6 +188,68 @@ For each sampled image, MLflow logs:
 - the new `generated.description.md`
 - metadata including timing and structured output
 
+## Evaluation workflow
+
+Build a hand-labelled eval set from your existing archive. First query the archive for heuristic candidates:
+
+```bash
+uv run photo-archivist eval query-candidates --db archive.db --eval-dir eval
+```
+
+If some categories still need candidates, run the classification-only Ollama pass over a random archive sample:
+
+```bash
+uv run photo-archivist eval classify-candidates --db archive.db --eval-dir eval --sample-size 200 --target-per-category 30
+```
+
+Candidate state is saved to `eval/candidates.json`. Use `PHOTO_ARCHIVIST_EVAL_DIR`, `PHOTO_ARCHIVIST_EVAL_TARGET`, `PHOTO_ARCHIVIST_EVAL_SAMPLE`, and `PHOTO_ARCHIVIST_EVAL_CLASSIFIER_MODEL` to change defaults. Set `PHOTO_ARCHIVIST_EVAL_READ_SIDECARS=1` if you want candidate mining to inspect sidecars as well as DB columns. The classifier default is `gemma4:e2b` and returns only one fixed category label.
+
+To prefill goldens with a remote self-hosted VLM, export sanitised candidate JPEGs:
+
+```bash
+uv run photo-archivist eval export-candidates --eval-dir eval --output eval/upload --limit-per-category 30
+```
+
+Create a short-lived GCP GPU VM after setting `PROJECT_ID`:
+
+```bash
+PROJECT_ID=my-project scripts/gcp/create_eval_vlm_vm.sh
+```
+
+Upload the export through IAP, install remote dependencies, and generate drafts:
+
+```bash
+gcloud compute scp --recurse eval/upload eval-vlm-l4:~/eval_upload --zone=europe-west4-a --tunnel-through-iap
+gcloud compute scp scripts/gcp/make_goldens.py eval-vlm-l4:~/make_goldens.py --zone=europe-west4-a --tunnel-through-iap
+gcloud compute ssh eval-vlm-l4 --zone=europe-west4-a --tunnel-through-iap --command 'python3 -m venv ~/vlm && . ~/vlm/bin/activate && pip install -U pip wheel transformers accelerate pillow torchvision bitsandbytes && python ~/make_goldens.py --input ~/eval_upload --output ~/eval_out --model Qwen/Qwen3.5-9B --load-in-4bit'
+gcloud compute scp --recurse eval-vlm-l4:~/eval_out ./eval_out --zone=europe-west4-a --tunnel-through-iap
+uv run photo-archivist eval import-drafts --eval-dir eval --draft-dir eval_out
+```
+
+Delete the VM when done:
+
+```bash
+PROJECT_ID=my-project scripts/gcp/delete_eval_vlm_vm.sh
+```
+
+The remote script retries malformed JSON and writes a reviewable fallback draft with `draft_parse_error` if a candidate still fails. Open `serve-ui` and use the **Evaluate** tab to skip candidates or save labels. If a draft exists, the rating, keywords, and description are prefilled for editing. Saving copies the source image to `eval/images/<category>/` and writes the reviewed golden JSON beside it:
+
+```json
+{
+  "rating": "keep",
+  "keywords": ["dog", "grass"],
+  "description_prose": "A dog standing on grass."
+}
+```
+
+Run or re-run scoring after labelling:
+
+```bash
+uv run photo-archivist eval score --eval-dir eval
+```
+
+The score command runs the archive pipeline on images with goldens, prints a summary table, and logs one MLflow run with rating accuracy, keyword coverage, field completeness, failures, and result artefacts. It supports goldens beside eval images and the older `eval/golden/<image-stem>.json` layout. It uses `MLFLOW_TRACKING_URI` / `MLFLOW_EXPERIMENT` when set, otherwise `sqlite:///mlflow.db` and `photo-archivist-eval`.
+
 Start the MLflow UI:
 
 ```bash
@@ -210,11 +272,12 @@ Then open:
 http://127.0.0.1:8714/
 ```
 
-The UI has three tabs:
+The UI has four tabs:
 
 - Archive: runs the same backend archive pipeline as the CLI, with controls for source, image count, model, random/latest selection, and file-modified date range
 - Faces: shows a random set of unlabelled face crops and saves labels
 - Search: plain-text searches archived descriptions/sidecars and shows matching images
+- Evaluate: reviews candidate images one at a time and saves hand-labelled eval goldens
 
 Use another database or port:
 

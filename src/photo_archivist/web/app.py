@@ -1,3 +1,4 @@
+import os
 import random
 import threading
 from datetime import datetime, time
@@ -6,13 +7,15 @@ from pathlib import Path
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-from photo_archivist import archive_runner, describe, faces, metadata, search, store
+from photo_archivist import archive_runner, describe, evaluation, faces, metadata, search, store
 from photo_archivist import sidecar as sidecars
 from photo_archivist.archive_runner import ArchiveOptions
 from photo_archivist.sources import onedrive
 
 
 DB_PATH = Path("archive.db")
+EVAL_DIR = Path(os.getenv("PHOTO_ARCHIVIST_EVAL_DIR", "eval"))
+EVAL_TARGET = int(os.getenv("PHOTO_ARCHIVIST_EVAL_TARGET", "30"))
 app = FastAPI()
 _lock = threading.Lock()
 _job = {"status": "idle", "total": 0, "processed": 0, "attempted": 0, "logs": []}
@@ -20,11 +23,12 @@ _job = {"status": "idle", "total": 0, "processed": 0, "attempted": 0, "logs": []
 
 HTML = """<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Photo Archiver</title><style>
-body{margin:0;font:18px/1.45 system-ui;background:#101114;color:#eee}button,input,select{font:inherit}h1{font-size:34px;margin:0 0 18px}h2{font-size:24px;margin:0 0 18px}#app{display:grid;grid-template-columns:260px 1fr;min-height:100vh;width:80vw;margin:0 auto}.nav{background:#17191f;border-right:1px solid #30333d;padding:20px;position:sticky;top:0;height:100vh;box-sizing:border-box}.nav button{display:block;width:100%;margin:0 0 10px;padding:13px 14px;border:1px solid #333846;background:#222631;color:#eee;border-radius:10px;text-align:left}.nav button.active{background:#395b9d}.tab{display:none;padding:28px}.tab.active{display:block}.controls{display:grid;grid-template-columns:220px 120px 210px 210px 140px;gap:16px;align-items:end;max-width:980px}.field{display:grid;gap:7px;min-width:0}.span2{grid-column:span 2}input,select{width:100%;min-width:0;background:#181b22;color:#eee;border:1px solid #333846;border-radius:8px;padding:11px 12px;min-height:48px;box-sizing:border-box}.primary{width:100%;background:#3f6db5;color:#fff;border:0;border-radius:8px;padding:12px 18px;min-height:48px}.secondary{background:#222631;color:#eee;border:1px solid #333846;border-radius:8px;padding:12px 18px;min-height:48px}progress{width:100%;height:24px}.logs{background:#050507;border:1px solid #333846;border-radius:10px;padding:14px;max-height:380px;overflow:auto;white-space:pre-wrap;font-size:16px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}.face,.result{background:#181b22;border:1px solid #333846;border-radius:10px;padding:12px}.face img,.result img{width:100%;height:150px;object-fit:cover;background:#000;border-radius:8px}.result{display:grid;grid-template-columns:210px 1fr;gap:14px}.result img{height:180px}.muted{color:#aaa}.toolbar{display:flex;justify-content:space-between;align-items:center;margin:0 0 18px}.toolbar button{width:160px}.hidden{display:none!important}@media(max-width:760px){#app{grid-template-columns:1fr;width:100vw}.nav{height:auto;position:static}.result{grid-template-columns:1fr}.span2{grid-column:auto}}
-</style></head><body><div id="app"><div class="nav"><h2>Photo Archiver</h2><button class="active" data-tab="archive">Archive</button><button data-tab="faces">Faces</button><button data-tab="search">Search</button></div><main>
+body{margin:0;font:18px/1.45 system-ui;background:#101114;color:#eee}button,input,select{font:inherit}h1{font-size:34px;margin:0 0 18px}h2{font-size:24px;margin:0 0 18px}#app{display:grid;grid-template-columns:260px 1fr;min-height:100vh;width:80vw;margin:0 auto}.nav{background:#17191f;border-right:1px solid #30333d;padding:20px;position:sticky;top:0;height:100vh;box-sizing:border-box}.nav button{display:block;width:100%;margin:0 0 10px;padding:13px 14px;border:1px solid #333846;background:#222631;color:#eee;border-radius:10px;text-align:left}.nav button.active{background:#395b9d}.tab{display:none;padding:28px}.tab.active{display:block}.controls{display:grid;grid-template-columns:220px 120px 210px 210px 140px;gap:16px;align-items:end;max-width:980px}.field{display:grid;gap:7px;min-width:0}.span2{grid-column:span 2}input,select{width:100%;min-width:0;background:#181b22;color:#eee;border:1px solid #333846;border-radius:8px;padding:11px 12px;min-height:48px;box-sizing:border-box}.primary{width:100%;background:#3f6db5;color:#fff;border:0;border-radius:8px;padding:12px 18px;min-height:48px}.secondary{background:#222631;color:#eee;border:1px solid #333846;border-radius:8px;padding:12px 18px;min-height:48px}progress{width:100%;height:24px}.logs{background:#050507;border:1px solid #333846;border-radius:10px;padding:14px;max-height:380px;overflow:auto;white-space:pre-wrap;font-size:16px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}.face,.result{background:#181b22;border:1px solid #333846;border-radius:10px;padding:12px}.face img,.result img{width:100%;height:150px;object-fit:cover;background:#000;border-radius:8px}.result{display:grid;grid-template-columns:210px 1fr;gap:14px}.result img{height:180px}.eval-card{max-width:900px;background:#181b22;border:1px solid #333846;border-radius:10px;padding:16px}.eval-card img{width:100%;max-height:520px;object-fit:contain;background:#000;border-radius:8px}.eval-form{display:grid;gap:12px;margin-top:12px}.eval-actions{display:flex;gap:12px}.eval-actions button{width:160px}.muted{color:#aaa}.toolbar{display:flex;justify-content:space-between;align-items:center;margin:0 0 18px}.toolbar button{width:160px}.hidden{display:none!important}@media(max-width:760px){#app{grid-template-columns:1fr;width:100vw}.nav{height:auto;position:static}.result{grid-template-columns:1fr}.span2{grid-column:auto}}
+</style></head><body><div id="app"><div class="nav"><h2>Photo Archiver</h2><button class="active" data-tab="archive">Archive</button><button data-tab="faces">Faces</button><button data-tab="search">Search</button><button data-tab="evaluate">Evaluate</button></div><main>
 <section id="archive" class="tab active"><h1>Archive photos</h1><div class="controls"><label class="field">Source<select id="sourceChoice"><option value="onedrive">OneDrive</option><option value="local">Local folder</option></select></label><label id="sourcePathWrap" class="field span2 hidden">Local path<input id="sourcePath" placeholder="/Users/you/Pictures/export"></label><label class="field">Images<input id="limit" type="number" min="1" value="10"></label><label class="field">Model<select id="model"><option value="">Default</option><option value="gemma4:e2b">gemma4:e2b</option><option value="llava:latest">llava:latest</option></select></label><label class="field">Photos<select id="selection"><option value="random">Random</option><option value="latest">Latest first</option><option value="period">Within period</option></select></label><label id="startWrap" class="field hidden">From<input id="start" type="date"></label><label id="endWrap" class="field hidden">To<input id="end" type="date"></label><button id="startJob" class="primary">Start</button></div><p><progress id="bar" value="0" max="1"></progress> <span id="status">idle</span></p><details open><summary>Logs</summary><pre id="logs" class="logs"></pre></details></section>
 <section id="faces" class="tab"><h1>Faces</h1><div class="toolbar"><button id="loadFaces" class="primary">Refresh</button><button id="saveFaces" class="primary">Save</button></div><div id="facesGrid" class="grid"></div></section>
 <section id="search" class="tab"><h1>Search</h1><div class="row"><input id="q" placeholder="search descriptions"><button id="runSearch" class="primary">Search</button></div><div id="results"></div></section>
+<section id="evaluate" class="tab"><h1>Evaluate</h1><label class="field">Category<select id="evalCategory"></select></label><p id="evalProgress" class="muted"></p><div id="evalCard" class="eval-card"></div></section>
 </main></div><script>
 const $=id=>document.getElementById(id);let timer=null;
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button,.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')});
@@ -39,8 +43,13 @@ async function loadFaces(){let j=await (await fetch('/api/faces')).json();$('fac
 $('saveFaces').onclick=async()=>{let labels={};document.querySelectorAll('[data-face]').forEach(i=>{if(i.value.trim())labels[i.dataset.face]=i.value.trim()});await fetch('/api/faces/labels',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(labels)});loadFaces()};
 $('runSearch').onclick=runSearch;$('q').onkeydown=e=>{if(e.key=='Enter')runSearch()};
 async function runSearch(){let j=await (await fetch('/api/search?q='+encodeURIComponent($('q').value))).json();$('results').innerHTML=j.results.map(r=>`<section class="result"><img src="/api/images/${r.id}"><div><h3>${esc(r.original_path.split('/').pop())}</h3><p class="muted">${esc(r.original_path)}</p><pre>${esc(r.text)}</pre></div></section>`).join('')||'<p class="muted">No matches.</p>'}
+$('evalCategory').onchange=loadEval;
+async function loadEval(){let cat=$('evalCategory').value||'people',j=await (await fetch('/api/eval/candidate?category='+encodeURIComponent(cat))).json();if(!$('evalCategory').options.length){$('evalCategory').innerHTML=j.categories.map(c=>`<option value="${c}">${c}</option>`).join('');$('evalCategory').value=j.category} $('evalProgress').textContent=j.labelled+'/'+j.target+' labelled for this category';let c=j.candidate;if(!c){$('evalCard').innerHTML='<p class="muted">No candidate.</p>';return}let d=c.draft||{},rating=d.rating||'keep',keywords=(d.keywords||[]).join(', '),desc=d.description_prose||'';$('evalCard').innerHTML=`<img src="/api/eval/images/${c.id}"><p class="muted">${esc(c.path)}</p><div class="eval-form"><select id="evalRating"><option ${rating=='keep'?'selected':''}>keep</option><option ${rating=='review'?'selected':''}>review</option><option ${rating=='cull'?'selected':''}>cull</option></select><input id="evalKeywords" placeholder="keywords, comma-separated" value="${attr(keywords)}"><textarea id="evalDescription" placeholder="description_prose" rows="4">${esc(desc)}</textarea><div class="eval-actions"><button class="primary" onclick="saveEval('${c.id}')">Save</button><button class="secondary" onclick="skipEval('${c.id}')">Skip</button></div></div>`}
+async function saveEval(id){await fetch('/api/eval/label',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({category:$('evalCategory').value,id:id,rating:$('evalRating').value,keywords:$('evalKeywords').value,description_prose:$('evalDescription').value})});loadEval()}
+async function skipEval(id){await fetch('/api/eval/skip',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({category:$('evalCategory').value,id:id})});loadEval()}
 function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
-poll();
+function attr(s){return esc(s).replace(/"/g,'&quot;')}
+poll();loadEval();
 </script></body></html>"""
 
 
@@ -113,6 +122,36 @@ def image(image_id: str):
     if not path.exists():
         return JSONResponse({"detail": "Not found"}, status_code=404)
     return FileResponse(path)
+
+
+@app.get("/api/eval/candidate")
+def eval_candidate(category: str = "people"):
+    return evaluation.next_candidate(EVAL_DIR, category, EVAL_TARGET)
+
+
+@app.get("/api/eval/images/{candidate_id}")
+def eval_candidate_image(candidate_id: str):
+    pool = evaluation.load_pool(EVAL_DIR)
+    for items in pool["categories"].values():
+        for item in items:
+            if item["id"] == candidate_id:
+                path = onedrive.ensure_local(Path(item["path"]))
+                return FileResponse(path)
+    return JSONResponse({"detail": "Not found"}, status_code=404)
+
+
+@app.post("/api/eval/label")
+async def eval_label(request: Request):
+    data = await request.json()
+    evaluation.label_candidate(EVAL_DIR, data["category"], data["id"], data.get("rating", "review"), data.get("keywords", ""), data.get("description_prose", ""))
+    return evaluation.next_candidate(EVAL_DIR, data["category"], EVAL_TARGET)
+
+
+@app.post("/api/eval/skip")
+async def eval_skip(request: Request):
+    data = await request.json()
+    skipped = evaluation.skip_candidate(EVAL_DIR, data["category"], data["id"])
+    return {"skipped": skipped}
 
 
 @app.get("/api/faces")

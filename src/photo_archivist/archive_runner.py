@@ -78,6 +78,7 @@ def archive_events(options: ArchiveOptions, source_func=source_media):
             yield {"type": "log", "message": "🧠 describing"}
         try:
             data = describe.coerce(describe.describe(media.path, backend=options.backend, model=options.model, retries=options.retries))
+            yield {"type": "vision", "path": str(media.path), "data": data}
         except RuntimeError as e:
             yield {"type": "log", "message": f"⚠️ skipped {media.path}: {e}"}
             attempted += 1

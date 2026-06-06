@@ -4,4 +4,14 @@ __pycache__/
 *.db
 .env
 
+eval/images/
+eval/drafts/
+eval/upload/
+eval/archive.db
+eval/candidates.json
+eval/*.description.md
+eval/**/*.description.md
+eval_out/
+monitor-qwen-gcp.md
+
 *.egg-info/
