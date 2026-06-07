@@ -13,7 +13,7 @@ from pillow_heif import register_heif_opener
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
 DEFAULT_BACKEND = os.getenv("VISION_BACKEND", "ollama")
-DEFAULT_PROMPT = "Return only JSON with keys: rating keep/review/cull, cull_reason string, focus sharp/acceptable/soft, exposure strong/adequate/poor/clipped, depth_of_field shallow/standard/deep, noise clean/some/heavy, lighting string, time_of_day string, dominant_color_palette string, dominant_colors list, people_count integer, keywords list, description_prose two lines, activity two words."
+DEFAULT_PROMPT = "Return only JSON with keys: rating keep/review/cull, cull_reason string, focus sharp/acceptable/soft, exposure strong/adequate/poor/clipped, depth_of_field shallow/standard/deep, noise clean/some/heavy, lighting string, time_of_day string, dominant_color_palette string, dominant_colors list, people_count integer, keywords list, description_prose 2-4 detailed sentences describing people, clothing, setting, visible activity, mood, background context, and notable visual details. Do not identify people by name. Avoid private addresses, phone numbers, IDs, or full document text., activity two words."
 
 
 @dataclass(frozen=True)

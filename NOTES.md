@@ -4,6 +4,14 @@
 
 photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or local paths into SQLite + Markdown sidecars. Each image gets: vision description (structured JSON via Ollama), CLIP embeddings (optional), face detection + labelling, EXIF extraction, reverse geocoding, and a framedex-style sidecar.
 
+### Richer description prompt (Session 12, 6 June)
+
+- Updated `describe.DEFAULT_PROMPT` to request `description_prose: 2-4 detailed sentences describing people, clothing, setting, visible activity, mood, background context, and notable visual details`
+- Added privacy guardrails directly in the prompt: `Do not identify people by name. Avoid private addresses, phone numbers, IDs, or full document text.`
+- Tested on two images against `gemma4:e2b`: the richer prompt produces materially more useful prose (clothing colours, setting inference, mood, background context) while preserving structured JSON output
+- Observed that the 2B model still hallucinates fine-grained background details and miscounts people compared to a larger reference model; this is a capacity limitation, not a prompt problem
+- Added `tests/test_describe.py` with tests for prompt content, long prose parsing, and field aliases
+
 ### GCP draft-golden eval plan (Session 11, 5 June)
 
 - Plan to prefill eval goldens with a short-lived private GCP GPU VM rather than writing every description by hand or sending photos to a public hosted model API
@@ -210,6 +218,15 @@ photo-archivist is a Python 3.12+ CLI that archives images from OneDrive or loca
 ---
 
 ## Decisions made and rationale
+
+### Richer description prompt
+
+| Decision | Rationale |
+|---|---|
+| Change `description_prose two lines` to `2-4 detailed sentences describing people, clothing, setting, visible activity, mood, background context, and notable visual details` | Qwen draft goldens showed that richer prose is materially more useful for search and browsing; the 2B model can deliver most of this detail when explicitly asked |
+| Embed privacy guardrails in the prompt itself | Keeps the constraint visible to the model at inference time; `Do not identify people by name` and `Avoid private addresses, phone numbers, IDs, or full document text` are present in every request |
+| Keep structured JSON output unchanged | All other fields (`rating`, `focus`, `exposure`, `keywords`, etc.) remain identical; only the prose guidance changes |
+| Accept model-capacity limitations on the 2B model | Hallucinated background details and people-count errors exist with both old and new prompts; the richer prompt does not make these worse and improves the prose that is correct |
 
 ### Removed Apple Photos
 
